@@ -3,7 +3,7 @@ Event-based Diffusion Modeling for Image Reconstruction
 
 <h1 align="center">
   <br>
-  <a href="https://www.uoh.cl/"><img src="https://imgur.com/RsfnVPk" alt="EventDiff Model" width="200"></a>
+  <a ![Texto alternativo](https://imgur.com/RsfnVPk)></a>
   <br>
   EventDiff Model
   <br>
