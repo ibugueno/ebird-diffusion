@@ -1,5 +1,3 @@
-#EVDIFF
-
 <h1 align="center">
   <br>
   Event-based Diffusion Modeling for Image Reconstruction.
@@ -7,17 +5,29 @@
 </h1>
 
 <h4 align="center">Memoria para optar al título de Ingeniero Civil Industrial</a>.</h4>
-<h4 align="center">Event-based Diffusion Modeling for Image Reconstruction</a>.</h4>
 
 ## Getting Started
 
 These instructions will give you a copy of the project up and running on
 your local machine for development and testing purposes. 
 
-### Prerequisites
+## Prerequisites
 
+Before you can run this project, ensure that you have the following installed:
 
+- **Anaconda or Miniconda**:
+Download and install either [Anaconda](https://www.anaconda.com/products/individual) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html), which provides the `conda` package and environment management system.
 
+### Setting Up the Environment
+
+Once Conda is installed, you can set up the environment for this project by following these steps:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/uoh-rislab/fv_event-based_diffusion_modeling_image_reconstruction.git
+   cd your-repo
+   
+   
 ### Installing
 
 
