@@ -25,9 +25,20 @@ Once Conda is installed, you can set up the environment for this project by foll
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/uoh-rislab/fv_event-based_diffusion_modeling_image_reconstruction.git
-   cd your-repo
-   
-   
+
+2. **Create the Conda environment from the environment.yml file**:
+   ```bash
+   conda env create -f environment.yml
+
+3. **Activate the newly created environment:**:
+   ```bash
+   conda activate EVDiff
+
+4. **Verify that the environment is activated and the dependencies are installed:**
+  ```bash
+  conda list
+
+
 ### Installing
 
 
@@ -37,7 +48,6 @@ Once Conda is installed, you can set up the environment for this project by foll
 
 
 ### Sample Tests
-
 
 
 
