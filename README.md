@@ -37,8 +37,7 @@ Once Conda is installed, you can set up the environment for this project by foll
 4. **Verify that the environment is activated and the dependencies are installed:**
    ```bash
    conda list
-
-
+   
 ### Installing
 
 
