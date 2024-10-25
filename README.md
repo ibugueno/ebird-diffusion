@@ -38,7 +38,7 @@ Once Conda is installed, you can set up the environment for this project by foll
    ```bash
    conda list
    
-### Installing
+## Training
 
 
 
@@ -48,12 +48,6 @@ Once Conda is installed, you can set up the environment for this project by foll
 
 ### Sample Tests
 
-
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code
-of conduct, and the process for submitting pull requests to us.
 
 
 ## Authors
