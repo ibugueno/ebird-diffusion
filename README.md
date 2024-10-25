@@ -35,8 +35,8 @@ Once Conda is installed, you can set up the environment for this project by foll
    conda activate EVDiff
 
 4. **Verify that the environment is activated and the dependencies are installed:**
-  ```bash
-  conda list
+   ```bash
+   conda list
 
 
 ### Installing
