@@ -38,8 +38,13 @@ Once Conda is installed, you can set up the environment for this project by foll
    ```bash
    conda list
    
-## Training
+## Training Base U-Net 
 
+The following code provides the training for the base Unet Model needed to get the weights given unconditional image inputs.
+
+1. **Go to MNIST_Model folder**:
+   ```bash
+   cd your_route/MNIST_Model
 
 
 ## Running the tests

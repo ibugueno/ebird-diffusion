@@ -1,7 +1,8 @@
 dataset_params:
   paths: 
-    - /home/fbn/Dataset Mnist - NMnist/Frames/0
-    - /home/fbn/Dataset Mnist - NMnist/Frames/1
+    - /Ejemplo/Ruta_1
+    - /Ejemplo/Ruta_2
+    - /Ejemplo/Ruta_n
 
 diffusion_params:
   num_timesteps : 1000
