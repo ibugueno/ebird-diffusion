@@ -30,11 +30,11 @@ Once Conda is installed, you can set up the environment for this project by foll
    ```bash
    conda env create -f environment.yml
 
-3. **Activate the newly created environment:**:
+3. **Activate the newly created environment**:
    ```bash
    conda activate EVDiff
 
-4. **Verify that the environment is activated and the dependencies are installed:**
+4. **Verify that the environment is activated and the dependencies are installed**:
    ```bash
    conda list
    
@@ -46,7 +46,13 @@ The following code provides the training for the base Unet Model needed to get t
    ```bash
    cd your_route/MNIST_Model
 
+2. **Run Train file**:
+   ```bash
+   python3 Train.py --config 'your_route/default.yaml'
 
+You must remember to configure the yaml file.
+
+   
 ## Running the tests
 
 
