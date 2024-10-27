@@ -66,9 +66,33 @@ The following code provides the training for the Conditional Unet Model needed t
 
 You must remember to configure the yaml file.
 
-## Running the Sampling
+## Running the Sampling Base Unet
 
+The following code provides the use for the sampling process.
 
+1. **Go to MNIST_Model folder**:
+   ```bash
+   cd your_route/MNIST_Model
+   
+2. **Run sample ddpm file**:
+   ```bash
+   python3 sample_ddpm.py --config 'your_route/default.yaml'
+   
+You must remember to configure the yaml file.
+
+## Running the Conditional Unet
+
+The following code provides the use for the sampling process with an event condition input.
+
+1. **Go to MNIST_Model folder**:
+   ```bash
+   cd your_route/MNIST_Model
+   
+2. **Run DualSample file**:
+   ```bash
+   python3 DualSample.py --config 'your_route/default.yaml'
+   
+You must remember to configure the yaml file and save the .pth files in default folder.
 
 ### Sample Tests
 

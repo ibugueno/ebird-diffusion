@@ -44,7 +44,11 @@ train_params:
   task_name: 'default'
   batch_size: 80
   num_epochs: 100
-  num_samples : 3
+  num_samples : 1
   num_grid_rows : 1
   lr: 0.0001
   ckpt_name: 'ddpm_ckpt.pth'
+
+conditional_params:
+  path_conditional: '/home/fbn/Dataset Mnist - NMnist/Events Test/1/389.jpg'
+
