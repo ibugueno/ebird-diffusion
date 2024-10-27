@@ -66,7 +66,7 @@ The following code provides the training for the Conditional Unet Model needed t
 
 You must remember to configure the yaml file.
 
-## Running the Sampling Base Unet
+## Running the Base Unet Sampling
 
 The following code provides the use for the sampling process.
 
