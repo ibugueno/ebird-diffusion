@@ -52,8 +52,21 @@ The following code provides the training for the base Unet Model needed to get t
 
 You must remember to configure the yaml file.
 
+## Training Conditional U-Net 
+
+The following code provides the training for the Conditional Unet Model needed to get the weights given unconditional image inputs.
+
+1. **Go to MNIST_Model folder**:
+   ```bash
+   cd your_route/MNIST_Model
    
-## Running the tests
+2. **Run Conditional Train file**:
+   ```bash
+   python3 Conditional_Train.py --config 'your_route/default.yaml'
+
+You must remember to configure the yaml file.
+
+## Running the Sampling
 
 
 
