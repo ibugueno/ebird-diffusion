@@ -10,8 +10,6 @@ from UnetClass import Unet
 from Scheduler import LinearNoiseScheduler
 from Datasets import SingleImageDataset
 
-from torch.utils.tensorboard import SummaryWriter
-#writer = SummaryWriter()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -43,7 +41,7 @@ def train(args):
     
     # Instantiate the model
     model = Unet(model_config).to(device)
-    print(model)
+    #print(model)
     model.train()
     
     # Create output directories
@@ -94,6 +92,6 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm training')
     parser.add_argument('--config', dest='config_path',
-                        default='config/default.yaml', type=str)
+                        default='default.yaml', type=str)
     args = parser.parse_args()
     train(args)

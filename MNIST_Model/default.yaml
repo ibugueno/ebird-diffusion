@@ -1,8 +1,15 @@
 dataset_params:
   paths: 
-    - /Ejemplo/Ruta_1
-    - /Ejemplo/Ruta_2
-    - /Ejemplo/Ruta_n
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/0
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/1
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/2
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/3
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/4
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/5
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/6
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/7
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/8
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/9    
 
 diffusion_params:
   num_timesteps : 1000
