@@ -80,7 +80,7 @@ The following code provides the use for the sampling process.
    
 You must remember to configure the yaml file.
 
-## Running the Conditional Unet
+## Running the Conditional Unet Sampling
 
 The following code provides the use for the sampling process with an event condition input.
 
