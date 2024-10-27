@@ -9,7 +9,19 @@ dataset_params:
     - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/6
     - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/7
     - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/8
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/9    
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/9
+    
+  paths_event: 
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/0
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/1
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/2
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/3
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/4
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/5
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/6
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/7
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/8
+    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/9
 
 diffusion_params:
   num_timesteps : 1000

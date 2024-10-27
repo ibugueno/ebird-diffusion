@@ -1,4 +1,5 @@
 import torch
+import torch
 import yaml
 import argparse
 import os
@@ -7,22 +8,30 @@ from tqdm import tqdm
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from UnetClass import Unet
+from UnetClass import CombinedUnet
 from Scheduler import LinearNoiseScheduler
-from Datasets import SingleImageDataset
+from PairedDataSet import PairedImageDataset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
-def train(args):
-    # Read the config file #
+def load_checkpoint(model, checkpoint_path_Unet, checkpoint_path_Partial=None):
+    model.unet.load_state_dict(torch.load(checkpoint_path_Unet,map_location=device))
+    print("Si")
+    # try:
+    #     model.partial_unet.load_state_dict(torch.load(checkpoint_path_Partial, map_location=device))
+    # except RuntimeError as e:
+    #     print(f"Error al cargar los pesos de PartialUnet: {e}")
+        
+        
+def main(args):
     with open(args.config_path, 'r') as file:
         try:
             config = yaml.safe_load(file)
         except yaml.YAMLError as exc:
             print(exc)
-    #print(config)
+    print(config)
     ########################
-    
+     
     diffusion_config = config['diffusion_params']
     dataset_config = config['dataset_params']
     dataset_paths = dataset_config['paths']
@@ -36,24 +45,17 @@ def train(args):
                                      beta_end=diffusion_config['beta_end'])
     
     # Create the dataset
-    mnist = SingleImageDataset(im_paths=dataset_paths)
-    #mnist = SingleImageDataset(im_path=dataset_config['im_path'])
-    mnist_loader = DataLoader(mnist, batch_size=train_config['batch_size'], shuffle=True, num_workers=4)
-    
-    # Instantiate the model
-    model = Unet(model_config).to(device)
-    #print(model)
-    model.train()
-    
-    # Create output directories
+    dataset = PairedImageDataset(dataset_paths, dataset_event_path, im_size=(28, 28))
+    mnist_loader = DataLoader(dataset, batch_size=train_config['batch_size'], shuffle=True, num_workers=4)
+
+    #model = Unet(model_config).to(device)   
+    model = CombinedUnet(model_config, model_config).to(device)
+    load_checkpoint(model, "default/ddpm_ckpt.pth")
+
+   # Create output directories
     if not os.path.exists(train_config['task_name']):
         os.mkdir(train_config['task_name'])
     
-    # Load checkpoint if found
-    if os.path.exists(os.path.join(train_config['task_name'],train_config['ckpt_name'])):
-        print('Loading checkpoint as found one')
-        model.load_state_dict(torch.load(os.path.join(train_config['task_name'],
-                                                      train_config['ckpt_name']), map_location=device))
     # Specify training parameters
     num_epochs = train_config['num_epochs']
     optimizer = Adam(model.parameters(), lr=train_config['lr'])
@@ -62,7 +64,9 @@ def train(args):
     # Run training
     for epoch_idx in range(num_epochs):
         losses = []
-        for im in tqdm(mnist_loader):
+        for batch_idx, (im, c) in enumerate(tqdm(mnist_loader, desc="Entrenando")):
+            im = im.float().to(device)  # Asegúrate de que im esté en la GPU
+            c = c.float().to(device)  
             optimizer.zero_grad()
             im = im.float().to(device)
             
@@ -74,7 +78,7 @@ def train(args):
             
             # Add noise to images according to timestep
             noisy_im = scheduler.add_noise(im, noise, t)
-            noise_pred = model(noisy_im, t)
+            noise_pred = model(noisy_im, c, t)
 
             loss = criterion(noise_pred, noise)
             losses.append(loss.item())
@@ -84,15 +88,13 @@ def train(args):
             epoch_idx + 1,
             np.mean(losses),
         ))
-        torch.save(model.state_dict(), os.path.join(train_config['task_name'],
-                                                    train_config['ckpt_name']))
-        #writer.add_scalar("Loss/train", np.mean(losses), epoch_idx)
+        torch.save(model.partial_unet.state_dict(), os.path.join(train_config['task_name'],
+                                                    "Combinet.pth"))
     print('Done Training ...')
-    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for ddpm training')
     parser.add_argument('--config', dest='config_path',
-                        default='default.yaml', type=str)
+                        default='config/default.yaml', type=str)
     args = parser.parse_args()
-    train(args)
+    main(args)
