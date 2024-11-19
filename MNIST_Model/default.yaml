@@ -1,27 +1,27 @@
 dataset_params:
   paths: 
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/0
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/1
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/2
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/3
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/4
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/5
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/6
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/7
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/8
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Frames/9
+    - /home/fbn/Dataset Mnist - NMnist/Frames/0
+    - /home/fbn/Dataset Mnist - NMnist/Frames/1
+    - /home/fbn/Dataset Mnist - NMnist/Frames/2
+    - /home/fbn/Dataset Mnist - NMnist/Frames/3
+    - /home/fbn/Dataset Mnist - NMnist/Frames/4
+    - /home/fbn/Dataset Mnist - NMnist/Frames/5
+    - /home/fbn/Dataset Mnist - NMnist/Frames/6
+    - /home/fbn/Dataset Mnist - NMnist/Frames/7
+    - /home/fbn/Dataset Mnist - NMnist/Frames/8
+    - /home/fbn/Dataset Mnist - NMnist/Frames/9
     
   paths_event: 
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/0
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/1
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/2
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/3
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/4
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/5
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/6
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/7
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/8
-    - /home/fbn/fv_event-based_diffusion_modeling_image_reconstruction/MNIST_Model/Dataset/Events/9
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/0
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/1
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/2
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/3
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/4
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/5
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/6
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/7
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/8
+    - /home/fbn/Dataset Mnist - NMnist/11 ms/Train/9
 
 diffusion_params:
   num_timesteps : 1000
@@ -43,12 +43,12 @@ model_params:
 train_params:
   task_name: 'default'
   batch_size: 80
-  num_epochs: 15
-  num_samples : 50
-  num_grid_rows : 10
+  num_epochs: 30
+  num_samples : 1
+  num_grid_rows : 1
   lr: 0.0001
   ckpt_name: 'ddpm_ckpt.pth'
 
 conditional_params:
-  path_conditional: '/home/fbn/Dataset Mnist - NMnist/Events Test/4/8082.jpg'
+  path_conditional: '/home/fbn/Dataset Mnist - NMnist/11 ms/Test/6/944.jpg'
 

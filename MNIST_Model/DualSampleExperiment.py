@@ -10,8 +10,6 @@ from UnetClass import CombinedUnet
 from Scheduler import LinearNoiseScheduler
 from PIL import Image
 import torchvision.transforms as transforms
-from timeit import default_timer as timer
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -41,17 +39,13 @@ def sample(Model_original, model, c ,scheduler, train_config, model_config, diff
                       model_config['im_size'],
                       model_config['im_size'])).to(device)
     
-    sum_time = 0
     for i in tqdm(reversed(range(diffusion_config['num_timesteps']))):
         # Get prediction of noise
-        #noise_pred = Model_original(xt, torch.as_tensor(i).unsqueeze(0).to(device)) + 0.5*(model(xt, c ,torch.as_tensor(i).unsqueeze(0).to(device)) - Model_original(xt, torch.as_tensor(i).unsqueeze(0).to(device)))
-
-        start_time = timer()
-        noise_pred = model(xt, c ,torch.as_tensor(i).unsqueeze(0).to(device)) #- Model_original(xt, torch.as_tensor(i).unsqueeze(0).to(device))
-        torch.cuda.synchronize()  # Sincroniza la GPU
-        inference_time = (timer() - start_time) * 1000
-        sum_time += inference_time
-        #print(f"Tiempo de inferencia: {inference_time:.2f} ms")
+        noise_pred = Model_original(xt, torch.as_tensor(i).unsqueeze(0).to(device)) + 2.8*(model(xt, c ,torch.as_tensor(i).unsqueeze(0).to(device)) - Model_original(xt, torch.as_tensor(i).unsqueeze(0).to(device)))
+        #noise_pred = 0.01*Model_original(xt, torch.as_tensor(i).unsqueeze(0).to(device)) + (model(xt, c ,torch.as_tensor(i).unsqueeze(0).to(device))) 
+       
+        #noise_pred = model(xt, c ,torch.as_tensor(i).unsqueeze(0).to(device)) #- Model_original(xt, torch.as_tensor(i).unsqueeze(0).to(device))
+        
         #noise_pred = model(xt, torch.as_tensor(i).unsqueeze(0).to(device))
         
         # Use scheduler to get x0 and xt-1
@@ -66,8 +60,7 @@ def sample(Model_original, model, c ,scheduler, train_config, model_config, diff
             os.mkdir(os.path.join(train_config['task_name'], 'samples'))
         img.save(os.path.join(train_config['task_name'], 'samples', 'x0_{}.png'.format(i)))
         img.close()
-    average_inference_time = sum_time / diffusion_config['num_timesteps']
-    print(f"Tiempo de inferencia: {average_inference_time:.2f} ms")
+
 
 def infer(args):
     # Read the config file #
