@@ -26,8 +26,8 @@ model_params:
 train_params:
   task_name: 'default_3'
   batch_size: 80
-  num_epochs: 1
-  num_epochs_2: 1
+  num_epochs: 40
+  num_epochs_2: 40
   epoch_resume: -1
   num_samples : 1
   num_grid_rows : 1
