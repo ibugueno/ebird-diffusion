@@ -26,11 +26,12 @@ model_params:
 train_params:
   task_name: 'default_0'
   batch_size: 80
-  num_epochs: 10
-  num_epochs_2: 10
+  num_epochs: 20
+  num_epochs_2: 20
   epoch_resume: -1
-  num_samples : 1
-  num_grid_rows : 1
+  num_samples : 2
+  num_grid_rows : 2
+  num_model: 20
   lr: 0.0001
   ckpt_name: 'Main.pth'
   ckpt_event_branch: 'Combined.pth'
@@ -38,5 +39,5 @@ train_params:
   C_log_loss: 'default_0/C_training.log'
 
 conditional_params:
-  path_conditional: '/home/fbn/Dataset Mnist - NMnist/11 ms/Test/6/944.jpg'
+  path_conditional: '/home/fbn/Dataset Mnist - NMnist/N-MNIST/33 ms/Test/0/4.jpg'
 

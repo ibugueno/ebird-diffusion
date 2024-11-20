@@ -61,9 +61,10 @@ def sample(Model_original, model, c ,scheduler, train_config, model_config, diff
         ims = torch.clamp(xt, -1., 1.).detach().cpu()
         ims = (ims + 1) / 2
         grid = make_grid(ims, nrow=train_config['num_grid_rows'])
-        img = torchvision.transforms.ToPILImage()(grid)
         if not os.path.exists(os.path.join(train_config['task_name'], 'samples'+"Conditional")):
             os.mkdir(os.path.join(train_config['task_name'], 'samples'+"Conditional"))
+        single_image = ims[0] 
+        img = torchvision.transforms.ToPILImage()(single_image)    
         img.save(os.path.join(train_config['task_name'], 'samples'+"Conditional", 'x0_{}.png'.format(i)))
         img.close()
     average_inference_time = sum_time / diffusion_config['num_timesteps']
@@ -114,7 +115,7 @@ if __name__ == '__main__':
                         default='config/default.yaml', type=str)
     
     
-    yamls = ['Training_yaml/1.yaml']
+    yamls = ['Training_yaml/0.yaml']
     for route_yamls in yamls:
         args = parser.parse_args(['--config', route_yamls])
         infer(args)
