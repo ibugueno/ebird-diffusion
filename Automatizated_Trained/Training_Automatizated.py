@@ -101,8 +101,9 @@ def Train_MainBranch(args):
             epoch_idx + 1,
             np.mean(losses),
         ))
+        
         torch.save(model.state_dict(), os.path.join(train_config['task_name'],
-                                                    str(epoch_idx + 1)+"_"+train_config['ckpt_name']))
+                                                        str(epoch_idx + 1)+"_"+train_config['ckpt_name']))
         
         graph_losses_epoch.append(np.mean(losses))
 
@@ -204,9 +205,11 @@ def Train_EventBranch(args):
             epoch_idx + 1,
             np.mean(losses),
         ))
-        
+
         torch.save(model.partial_unet.state_dict(), os.path.join(train_config['task_name'],
-                                                    str(epoch_idx + 1)+"_"+train_config['ckpt_event_branch']))
+                                                        str(epoch_idx + 1)+"_"+train_config['ckpt_event_branch']))
+    
+        graph_losses_epoch.append(np.mean(losses))
     
     for epoch, loss in enumerate(graph_losses_epoch, 1):
         log_message = f"Epoch {epoch}: Loss = {loss:.4f}\n"
@@ -240,6 +243,12 @@ if __name__ == '__main__':
     
     for route_yamls in yamls:
         args = parser.parse_args(['--config', route_yamls])
+        
+        print('*'*40)
+        print('*'*40)
+        print('Model Config by: ',route_yamls)
+        print('*'*40)
+        print('*'*40)
         
         Train_MainBranch(args)
         Train_EventBranch(args)

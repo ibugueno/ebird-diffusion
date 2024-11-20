@@ -87,8 +87,9 @@ def main(args):
             epoch_idx + 1,
             np.mean(losses),
         ))
-        torch.save(model.partial_unet.state_dict(), os.path.join(train_config['task_name'],
-                                                    "Combinet.pth"))
+        if epoch_idx + 1 % 5 == 0:
+            torch.save(model.partial_unet.state_dict(), os.path.join(train_config['task_name'],
+                                                        "Combinet.pth"))
     print('Done Training ...')
 
 if __name__ == '__main__':
