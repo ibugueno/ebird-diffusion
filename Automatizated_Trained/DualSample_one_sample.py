@@ -96,7 +96,7 @@ def infer(args):
     ##
     route_original = train_config['task_name']+"/"+str(train_config["num_model"])+"_"+train_config['ckpt_name']
     route_conditional = train_config['task_name']+"/"+str(train_config["num_model"])+"_"+train_config['ckpt_event_branch']
-    
+
     model = CombinedUnet(model_config, model_config).to(device)
     load_checkpoint(model, route_original,route_conditional)
     model.eval()

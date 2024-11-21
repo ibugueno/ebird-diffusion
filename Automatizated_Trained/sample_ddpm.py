@@ -72,7 +72,17 @@ if __name__ == '__main__':
     parser.add_argument('--config', dest='config_path',
                         default='config/default.yaml', type=str)
     
-    yamls = ['Training_yaml/0.yaml']
+    yamls = ['Training_yaml/0.yaml',
+             'Training_yaml/1.yaml',
+             'Training_yaml/2.yaml',
+             'Training_yaml/3.yaml',
+             'Training_yaml/4.yaml',
+             'Training_yaml/5.yaml',
+             'Training_yaml/6.yaml',
+             'Training_yaml/7.yaml',
+             'Training_yaml/8.yaml',
+             'Training_yaml/9.yaml']
+    
     for route_yamls in yamls:
         args = parser.parse_args(['--config', route_yamls])
         infer(args)
