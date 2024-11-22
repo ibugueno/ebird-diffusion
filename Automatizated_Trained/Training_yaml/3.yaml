@@ -4,7 +4,7 @@ dataset_params:
 
     
   paths_event: 
-    - /home/fbn/Dataset Mnist - NMnist/N-MNIST/33 ms/Train/3
+    - /home/fbn/Dataset Mnist - NMnist/N-MNIST/11 ms/Train/3
 
 diffusion_params:
   num_timesteps : 1000
@@ -29,8 +29,8 @@ train_params:
   num_epochs: 40
   num_epochs_2: 40
   epoch_resume: -1
-  num_samples : 16
-  num_grid_rows : 4
+  num_samples : 1
+  num_grid_rows : 1
   num_model: 40
   lr: 0.0001
   ckpt_name: 'Main.pth'
@@ -40,4 +40,5 @@ train_params:
 
 conditional_params:
   path_conditional: '/home/fbn/Dataset Mnist - NMnist/N-MNIST/33 ms/Test/3/33.jpg'
-
+  path_ground_truth: '/home/fbn/Dataset Mnist - NMnist/MNIST/Test'
+  path_condition: '/home/fbn/Dataset Mnist - NMnist/N-MNIST/33 ms/Test'

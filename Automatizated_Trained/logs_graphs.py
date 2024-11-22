@@ -42,7 +42,7 @@ for i in range(0,num*2):
 
 
 
-    print(pos, col," par")    
+    #print(pos, col," par")    
     ax = axes[pos][col]
     if col == 1:
         col = 0
@@ -53,16 +53,16 @@ for i in range(0,num*2):
     
     ax.plot(epochs1, losses1, label=f"Main Branch", marker='.')
     ax.plot(epochs2, losses2, label=f"Event Branch", marker='.')
-    ax.set_title(f"Epoch vs Log Loss - Number {i}")
+    ax.set_title(f"Epoch vs Loss - Number {i}")
     ax.set_xlabel("Epoch")
-    ax.set_ylabel("Log Loss")
+    ax.set_ylabel("Loss")
     ax.legend()
     ax.grid()
     # Configuración adicional del eje Y: incrementos de 0.05
     y_min, y_max = min(min(losses1), min(losses2)), max(max(losses1), max(losses2))
     y_ticks = np.arange(np.floor(y_min * 20) / 20, np.ceil(y_max * 20) / 20 + 0.05, 0.1)
     ax.set_yticks(y_ticks)  # Establecer ticks en intervalos de 0.05
-    ax.set_yscale('log')  # Cambiar el eje Y a escala logarítmica
+    #ax.set_yscale('log')  # Cambiar el eje Y a escala logarítmica
 
 # Ajustar diseño
 plt.tight_layout()

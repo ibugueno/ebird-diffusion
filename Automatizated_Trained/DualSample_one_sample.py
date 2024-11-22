@@ -95,7 +95,8 @@ def infer(args):
     
     ##
     route_original = train_config['task_name']+"/"+str(train_config["num_model"])+"_"+train_config['ckpt_name']
-    route_conditional = train_config['task_name']+"/"+str(train_config["num_model"])+"_"+train_config['ckpt_event_branch']
+    #route_conditional = train_config['task_name']+"/"+str(train_config["num_model"])+"_"+train_config['ckpt_event_branch']
+    route_conditional = train_config['task_name']+"/"+str(40)+"_"+train_config['ckpt_event_branch']
 
     model = CombinedUnet(model_config, model_config).to(device)
     load_checkpoint(model, route_original,route_conditional)
@@ -115,7 +116,7 @@ if __name__ == '__main__':
                         default='config/default.yaml', type=str)
     
     
-    yamls = ['Training_yaml/0.yaml']
+    yamls = ['Training_yaml/6.yaml']
     for route_yamls in yamls:
         args = parser.parse_args(['--config', route_yamls])
         infer(args)
