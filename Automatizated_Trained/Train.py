@@ -60,6 +60,14 @@ def train(args):
     criterion = torch.nn.MSELoss()
     
     # Run training
+    graph_losses_epoch = []
+    log_file = train_config["log_loss"]    
+    
+    if os.path.exists(log_file):
+        with open(log_file, 'w') as file:
+            file.write("")  
+    
+    # Run training
     for epoch_idx in range(num_epochs):
         losses = []
         for im in tqdm(mnist_loader):
@@ -87,6 +95,19 @@ def train(args):
         torch.save(model.state_dict(), os.path.join(train_config['task_name'],
                                                     train_config['ckpt_name']))
         #writer.add_scalar("Loss/train", np.mean(losses), epoch_idx)
+        graph_losses_epoch.append(np.mean(losses))
+    
+    
+    for epoch, loss in enumerate(graph_losses_epoch, 1):
+        log_message = f"Epoch {epoch}: Loss = {loss:.4f}\n"
+        print(log_message, end="")  
+        
+        # Escribir el log en el archivo
+        with open(log_file, 'a') as file:
+            file.write(log_message)
+
+    print(f"Log guardado en {log_file}")    
+        
     print('Done Training ...')
     
 

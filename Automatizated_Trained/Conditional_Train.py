@@ -15,7 +15,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def load_checkpoint(model, checkpoint_path_Unet, checkpoint_path_Partial=None):
     model.unet.load_state_dict(torch.load(checkpoint_path_Unet,map_location=device))
-    print("Si")
+    print("Loaded Checkpoint.")
     # try:
     #     model.partial_unet.load_state_dict(torch.load(checkpoint_path_Partial, map_location=device))
     # except RuntimeError as e:
@@ -49,7 +49,7 @@ def main(args):
 
     #model = Unet(model_config).to(device)   
     model = CombinedUnet(model_config, model_config).to(device)
-    load_checkpoint(model, "default/ddpm_ckpt.pth")
+    load_checkpoint(model, "default_general/Main.pth")
 
    # Create output directories
     if not os.path.exists(train_config['task_name']):
@@ -59,7 +59,8 @@ def main(args):
     num_epochs = train_config['num_epochs']
     optimizer = Adam(model.parameters(), lr=train_config['lr'])
     criterion = torch.nn.MSELoss()
-    
+    graph_losses_epoch = []
+    log_file = train_config["C_log_loss"]    
     # Run training
     for epoch_idx in range(num_epochs):
         losses = []
@@ -87,9 +88,23 @@ def main(args):
             epoch_idx + 1,
             np.mean(losses),
         ))
-        if epoch_idx + 1 % 5 == 0:
-            torch.save(model.partial_unet.state_dict(), os.path.join(train_config['task_name'],
+
+        torch.save(model.partial_unet.state_dict(), os.path.join(train_config['task_name'],
                                                         "Combinet.pth"))
+        graph_losses_epoch.append(np.mean(losses))
+    
+    
+    for epoch, loss in enumerate(graph_losses_epoch, 1):
+        log_message = f"Epoch {epoch}: Loss = {loss:.4f}\n"
+        print(log_message, end="")  
+        
+        # Escribir el log en el archivo
+        with open(log_file, 'a') as file:
+            file.write(log_message)
+
+    print(f"Log guardado en {log_file}")   
+    
+    
     print('Done Training ...')
 
 if __name__ == '__main__':

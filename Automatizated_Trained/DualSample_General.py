@@ -89,12 +89,12 @@ def infer(args):
     # Load model with checkpoint
     Model_original = Unet(model_config).to(device)
     Model_original.load_state_dict(torch.load(os.path.join(train_config['task_name'],
-                                                str(train_config["num_model"])+"_"+train_config['ckpt_name']), map_location=device))
+                                                train_config['ckpt_name']), map_location=device))
     Model_original.eval()
     
     ##
-    route_original = train_config['task_name']+"/"+str(train_config["num_model"])+"_"+train_config['ckpt_name']
-    route_conditional = train_config['task_name']+"/"+str(train_config["num_model"])+"_"+train_config['ckpt_event_branch']
+    route_original = train_config['task_name']+"/"+train_config['ckpt_name']
+    route_conditional = train_config['task_name']+"/"+train_config['ckpt_event_branch']
     
     model = CombinedUnet(model_config, model_config).to(device)
     load_checkpoint(model, route_original,route_conditional)
