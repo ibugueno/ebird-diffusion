@@ -1,0 +1,26 @@
+name: EVDiff
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - setuptools
+  - wheel
+  - cudatoolkit=11.8
+  - zlib
+  - openssl
+  - xz
+  - tk
+  - sqlite
+  - libffi
+  - ca-certificates
+  - pip:
+      - einops==0.6.1
+      - matplotlib==3.7.2
+      - numpy==1.23.5
+      - opencv-python==4.8.0.74
+      - PyYAML==6.0
+      - torch
+      - torchvision
+      - torchaudio
+      - tqdm==4.65.0
