@@ -18,6 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 # ------------------- módulos del usuario ------------------- #
+from UnetClass2 import Unet
 from UnetClass2 import CombinedUnet  # asume composición completa (unet + partial_unet)
 from Scheduler import LinearNoiseScheduler
 from PairedDataSet_ajustable import PairedImageDataset
@@ -49,7 +50,7 @@ def save_checkpoint(state: dict, ckpt_path: Path, is_best: bool = False):
     ckpt_path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(state, ckpt_path)
     if is_best:
-        best_path = ckpt_path.with_stem("best_" + ckpt_path.stem)
+        best_path = ckpt_path.with_stem("Combinet" + ckpt_path.stem)
         torch.save(state, best_path)
         logging.info("Nuevo mejor modelo guardado en %s", best_path)
 
@@ -111,23 +112,29 @@ def validate(model, loader, criterion, scheduler, device):
 
 # ------------------- función principal por subset ------------- #
 
-def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.device):
+def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.device, path_images: list, path_events: list, class_name: str):
     """Ejecuta entrenamiento para un subset específico."""
     diffusion_cfg = cfg["diffusion_params"]
+    
+    ###
     data_cfg = cfg["dataset_params"]
+    path_images = path_images
+    path_events = path_events
+    ###
+    
     model_cfg = cfg["model_params"]
     train_cfg = cfg["train_params"]
     save_name = train_cfg["ckpt_name"]
 
     # Directorio de salida
-    run_dir = Path(train_cfg["task_name"]) / f"subset_{int(subset_ratio*100)}"
+    run_dir = Path(train_cfg["task_name"]) /class_name /f"subset_{int(subset_ratio*100)}"
     setup_logger(run_dir)
     writer = SummaryWriter(log_dir=run_dir / "tb")
 
     # Dataset & DataLoader
     dataset = PairedImageDataset(
-        data_cfg["paths"],
-        data_cfg["paths_event"],
+        path_images,
+        path_events,
         im_size=tuple(data_cfg.get("im_size", (28, 28))),
         subset_ratio=subset_ratio,
     )
@@ -141,13 +148,16 @@ def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.devic
     )
 
     # Modelo
+
     model = CombinedUnet(model_cfg, model_cfg).to(device)
 
     # Opción: cargar pesos base (e.g., unet pre‑entrenado)
-    base_ckpt = Path(train_cfg["task_name"],"checkpoints/ddpm_ckpt.pth")
+    base_ckpt = Path(train_cfg["task_name"],"DDPM/checkpoints/ddpm_ckpt.pth")
+    print("Base CKPT DDPM",base_ckpt)
+    ckpt = torch.load(base_ckpt, map_location='cpu')
     if base_ckpt.is_file():
         try:
-            model.unet.load_state_dict(torch.load(base_ckpt, map_location="cpu"))
+            model.unet.load_state_dict(ckpt['model_state_dict'])
             logging.info("Pesos base de Unet cargados desde %s", base_ckpt)
         except Exception as e:
             logging.warning("No se pudieron cargar pesos base: %s", e)
@@ -206,11 +216,11 @@ def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.devic
         )
     finally:
         writer.close()
-        logging.info("🎉 Fin del subset %.2f", subset_ratio)
+        logging.info("Fin del subset %.2f", subset_ratio)
 
 # ------------------- CLI principal ------------------- #
 
-def main():
+def main(path_images: list, path_events: list, class_name: str):
     parser = argparse.ArgumentParser(description="Entrenamiento Combined‑UNet DDPM con subsets")
     parser.add_argument("--config", default="src/default.yaml", type=str, help="Ruta al YAML de configuración")
     parser.add_argument("--subset-ratios", nargs="*", default=[0.25, 0.5, 0.75, 1.0], type=float, help="Ratios de subconjunto a entrenar")
@@ -225,7 +235,44 @@ def main():
     torch.backends.cudnn.benchmark = True
 
     for ratio in args.subset_ratios:
-        run_subset(cfg, subset_ratio=ratio, resume=not args.no_resume, device=device)
+        run_subset(cfg, subset_ratio=ratio, resume=not args.no_resume, device=device, path_images = path_images, path_events = path_events, class_name = class_name)
 
 if __name__ == "__main__":
-    main()
+
+    
+    routes_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/0',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/1',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/2',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/3',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/4',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/5',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/6',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/7',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/8',
+                    'Rislab_Event_influence_volume/dataset/MNIST/Train/9']                  
+
+
+    routes_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/0',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/1',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/2',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/3',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/4',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/5',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/6',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/7',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/8',
+                    'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/9'                   
+                    ]
+
+    main(path_images = routes_images, path_events = routes_events, class_name = "All")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/0'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/0'], class_name = "0")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/1'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/1'], class_name = "1")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/2'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/2'], class_name = "2")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/3'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/3'], class_name = "3")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/4'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/4'], class_name = "4")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/5'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/5'], class_name = "5")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/6'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/6'], class_name = "6")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/7'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/7'], class_name = "7")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/8'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/8'], class_name = "8")
+    main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/9'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/9'], class_name = "9")
+

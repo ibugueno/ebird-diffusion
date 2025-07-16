@@ -21,8 +21,8 @@ class PairedImageDataset(Dataset):
         print(f"Dataset reducido al {subset_ratio*100}%: {len(self.main_images)} muestras emparejadas seleccionadas.")
         
         # Imprimir los archivos seleccionados para verificación
-        for main_img, cond_img in zip(self.main_images, self.condition_images):
-            print(f"Main: {main_img} <-> Condition: {cond_img}")
+        #for main_img, cond_img in zip(self.main_images, self.condition_images):
+        #    print(f"Main: {main_img} <-> Condition: {cond_img}")
 
     def load_images(self, main_paths, condition_paths, subset_ratio):
         """

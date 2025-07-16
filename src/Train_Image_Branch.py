@@ -138,7 +138,7 @@ def main(cfg_path: str, resume: bool = True):
     torch.backends.cudnn.benchmark = True  # velocidad si las dimensiones son fijas
 
     # 2) Logging ------------------------------------------------------------------
-    run_dir = Path(train_cfg["task_name"])
+    run_dir = Path(train_cfg["task_name"], "DDPM")
     setup_logger(run_dir)
     writer = SummaryWriter(log_dir=run_dir / "tb")
 
