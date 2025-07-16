@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from UnetClass import Unet
+from UnetClass2 import Unet
 from Scheduler import LinearNoiseScheduler
 from Datasets import SingleImageDataset
 
@@ -49,7 +49,6 @@ def train(args):
     
     # Create the dataset
     mnist = SingleImageDataset(im_paths=dataset_paths)
-    #mnist = SingleImageDataset(im_path=dataset_config['im_path'])
     mnist_loader = DataLoader(mnist, batch_size=train_config['batch_size'], shuffle=True, num_workers=4)
     
     # Instantiate the model

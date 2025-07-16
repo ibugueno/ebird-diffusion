@@ -262,7 +262,7 @@ class UpBlock(nn.Module):
     
     def forward(self, x, out_down, t_emb):
         x = self.up_sample_conv(x)
-        print("out: ",x.size()," | Down: " ,out_down.size(),"Dimensiones Pre Concat")
+        #print("out: ",x.size()," | Down: " ,out_down.size(),"Dimensiones Pre Concat")
         x = torch.cat([x, out_down], dim=1)
         
         out = x
@@ -337,41 +337,41 @@ class Unet(nn.Module):
         # Shapes assuming midblocks are [C4, C4, C3]
         # Shapes assuming downsamples are [True, True, False]
         # B x C x H x W
-        print("Unet x Input: ",x.size())
+        #print("Unet x Input: ",x.size())
         out = self.conv_in(x)
-        print("Unet Conv x Input: ",x.size())
+        #print("Unet Conv x Input: ",x.size())
         # B x C1 x H x W
         
         # t_emb -> B x t_emb_dim
         t_emb = get_time_embedding(torch.as_tensor(t).long(), self.t_emb_dim)
         t_emb = self.t_proj(t_emb)
-        print("Unet time embedding: ", t_emb.size())
+        #print("Unet time embedding: ", t_emb.size())
         
         down_outs = []
         
         for idx, down in enumerate(self.downs):
             down_outs.append(out)
             out = down(out, t_emb)
-            print("Unet Down: ", out.size())
+            #print("Unet Down: ", out.size())
         # down_outs  [B x C1 x H x W, B x C2 x H/2 x W/2, B x C3 x H/4 x W/4]
         # out B x C4 x H/4 x W/4
             
         for mid in self.mids:
             out = mid(out, t_emb)
-            print("Unet Mid: ", out.size())
+            #print("Unet Mid: ", out.size())
         # out B x C3 x H/4 x W/4
         
         for up in self.ups:
             down_out = down_outs.pop()
             out = up(out, down_out, t_emb)
-            print("Unet Up: ", out.size())
+            #print("Unet Up: ", out.size())
             # out [B x C2 x H/4 x W/4, B x C1 x H/2 x W/2, B x 16 x H x W]
         out = self.norm_out(out)
-        print("Unet norm: ", out.size())
+        #print("Unet norm: ", out.size())
         out = nn.SiLU()(out)
-        print("Unet SILU: ", out.size())
+        #print("Unet SILU: ", out.size())
         out = self.conv_out(out)
-        print("Unet conv Out: ", out.size())
+        #print("Unet conv Out: ", out.size())
         # out B x C x H x W
         return out
     
@@ -468,11 +468,11 @@ class PartialUnet(nn.Module):
 
     def forward(self, x, condition, t):
         # --- (0) Condición inicial ------------------------------------------------
-        print("Unet Copy-Condition Input: ",condition.size())
+        #print("Unet Copy-Condition Input: ",condition.size())
         cond_out = self.zero_cond_conv(condition)    # (B, C0, H, W)
-        print("Unet Copy-Condition Conv: ",cond_out.size())
+        #print("Unet Copy-Condition Conv: ",cond_out.size())
         out = self.conv_in(x) + cond_out             # (B, C0, H, W)
-        print("Unet Copy-Out Conv + Condition: ",out.size())
+        #print("Unet Copy-Out Conv + Condition: ",out.size())
 
         # --- (1) Time embedding ---------------------------------------------------
         t_emb = self.t_proj(get_time_embedding(torch.as_tensor(t).long(), self.t_emb_dim))
@@ -482,33 +482,33 @@ class PartialUnet(nn.Module):
         for down in self.downs:
             out = down(out, t_emb)
             down_outs.append(out)                    # guardamos skip
-            print("Unet Copy Down out: ", out.size())
+            #print("Unet Copy Down out: ", out.size())
         # --- (3) MidBlocks --------------------------------------------------------
         for mid in self.mids:
             out = mid(out, t_emb)                    # sale con C_{n-2} canales
-            print("Unet Copy Mid out: ", out.size())
+            #print("Unet Copy Mid out: ", out.size())
         # --- (4) Decoder parcial con ZeroConv1x1 ---------------------------------
         zero_conv_outs = []
         for i, zero_conv in enumerate(self.skip_convs):          # mismo orden que arriba
             skip = down_outs[-(i + 1)]                           # tensor del encoder
             
-            print("Unet Copy out: ", out.size(), "skip:", skip.size())
+            #print("Unet Copy out: ", out.size(), "skip:", skip.size())
             
             # Aseguramos misma resolución espacial (por si el upsample interno = False)
             if out.shape[-2:] != skip.shape[-2:]:
                 out = F.interpolate(out, size=skip.shape[-2:], mode="nearest")
-                print("Unet Output interpolate", out.size())
+                #print("Unet Output interpolate", out.size())
 
 
             x_cat = torch.cat([out, skip], dim=1)                # C_{i+1}+C_i canales
             #print("Unet Copy X_cat:", x_cat.size())
             out   = zero_conv(x_cat, t_emb)                      # → out_channels definido
-            print("Unet Output Zero Conv", out.size())
+            #print("Unet Output Zero Conv", out.size())
             
             zero_conv_outs.append(out)
 
 
-        print("Unet Copy Completamente ejecutada\n")
+        #print("Unet Copy Completamente ejecutada\n")
         return down_outs, zero_conv_outs        
         
 
@@ -589,22 +589,22 @@ class CombinedUnet(nn.Module):
         for i, down in enumerate(self.unet.downs):
             down_outs_unet.append(out)
             out = down(out, t_emb)
-            print("Original Unet Down: ",out.size())
+            #print("Original Unet Down: ",out.size())
             
         # Aplicar MidBlocks
         for mid in self.unet.mids:
             out = mid(out, t_emb)
-            print("Original Mid: ",out.size())
+            #print("Original Mid: ",out.size())
             
         
         # Fase de Upsampling y combinación con las salidas de ZeroConv1x1
         for i, up in enumerate(self.unet.ups):
-            print("-",i,"-")
+            #print("-",i,"-")
             down_out = down_outs_unet.pop()
             zero_conv_out = zero_conv_outs[i]  # Salida de ZeroConv correspondiente
-            print("Unet Copy Ups Zero Conv: ",zero_conv_out.size())
+            #print("Unet Copy Ups Zero Conv: ",zero_conv_out.size())
             out = up(out, down_out, t_emb)
-            print("Original Unet Ups: ",out.size())
+            #print("Original Unet Ups: ",out.size())
 
             out += zero_conv_out  # Sumar salida de ZeroConv a la salida del UpBlock correspondiente
 
@@ -613,7 +613,7 @@ class CombinedUnet(nn.Module):
         out = nn.SiLU()(out)
         out = self.unet.conv_out(out)
         
-        print('Original Unet + Condition Output: Size', out.size())
+        #print('Original Unet + Condition Output: Size', out.size())
         return out
     
 
@@ -654,7 +654,7 @@ def print_Unet(debug=False):
 
 
 def print_PartialUnet(debug=False):
-    with open('default.yaml', 'r') as file:
+    with open('src/default.yaml', 'r') as file:
         config = yaml.safe_load(file)
     diffusion_config = config['diffusion_params']
     if debug: print(diffusion_config)
@@ -685,7 +685,7 @@ def print_PartialUnet(debug=False):
 
 
 def print_CombinedUnet(debug=False):
-    with open('default.yaml', 'r') as file:
+    with open('src/default.yaml', 'r') as file:
         config = yaml.safe_load(file)
     diffusion_config = config['diffusion_params']
     if debug: print(diffusion_config)
@@ -718,4 +718,4 @@ def print_CombinedUnet(debug=False):
 
 #print_Unet(debug = True)
 #print_PartialUnet(debug = True)
-print_CombinedUnet(debug=True)
+#print_CombinedUnet(debug=True)
