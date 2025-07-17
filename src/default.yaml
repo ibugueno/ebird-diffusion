@@ -42,7 +42,7 @@ model_params:
 
 train_params:
   task_name: 'Rislab_Event_influence_volume'
-  batch_size: 128
+  batch_size: 4
   num_epochs: 2
   num_samples : 1
   num_grid_rows : 1
@@ -53,12 +53,12 @@ conditional_params:
   path_conditional: 
     - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/0'
     - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/1'
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/2'
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/3' 
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/4' 
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/5' 
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/6' 
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/7' 
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/8' 
-    #- 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/9'     
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/2'
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/3' 
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/4' 
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/5' 
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/6' 
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/7' 
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/8' 
+    # - 'Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Test/9'     
 

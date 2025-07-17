@@ -25,3 +25,6 @@ dependencies:
       - torchaudio
       - tqdm==4.65.0
       - tensorboard
+      - psutil 
+      - py-cpuinfo
+

@@ -58,7 +58,8 @@ def save_checkpoint(state: dict, ckpt_path: Path, is_best: bool = False):
 def load_checkpoint(model: nn.Module, optimizer: Adam, ckpt_path: Path):
     if ckpt_path.exists():
         ckpt = torch.load(ckpt_path, map_location="cpu")
-        model.load_state_dict(ckpt["model_state_dict"])
+        model.unet.load_state_dict(ckpt['unet'])
+        model.partial_unet.load_state_dict(ckpt['partial_unet'])
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         start_epoch = ckpt["epoch"] + 1
         best_loss = ckpt.get("best_loss", float("inf"))
@@ -196,7 +197,8 @@ def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.devic
             save_checkpoint(
                 {
                     "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
+                    'unet': model.unet.state_dict(),
+                    'partial_unet': model.partial_unet.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "best_loss": best_loss,
                 },
@@ -208,7 +210,8 @@ def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.devic
         save_checkpoint(
             {
                 "epoch": epoch,
-                "model_state_dict": model.state_dict(),
+                'unet': model.unet.state_dict(),
+                'partial_unet': model.partial_unet.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "best_loss": best_loss,
             },
