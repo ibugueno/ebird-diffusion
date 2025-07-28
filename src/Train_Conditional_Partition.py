@@ -7,6 +7,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import List
+from torch.cuda.amp import autocast, GradScaler
+
 
 import yaml
 import numpy as np
@@ -38,11 +40,26 @@ def seed_everything(seed: int = 44):
 def setup_logger(log_dir: Path, level=logging.INFO):
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / ("train_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".log")
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[logging.FileHandler(log_file, mode="w"), logging.StreamHandler()],
-    )
+
+    logger = logging.getLogger()  # logger raíz
+    logger.setLevel(level)
+
+    # Limpiar handlers previos para evitar logs repetidos
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # Crear handlers para archivo y consola
+    file_handler = logging.FileHandler(log_file, mode="w")
+    stream_handler = logging.StreamHandler()
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    stream_handler.setFormatter(formatter)
+
+    # Añadir handlers al logger raíz
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+
     logging.info("Logging to %s", log_file)
 
 
@@ -81,7 +98,7 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, scheduler, devi
         noisy_im = scheduler.add_noise(im, noise, timesteps)
 
         optimizer.zero_grad(set_to_none=True)
-        with torch.amp.autocast(device_type=device.type):
+        with autocast(enabled=(device.type == "cuda")):
             noise_pred = model(noisy_im, cond, timesteps)
             loss = criterion(noise_pred, noise)
         scaler.scale(loss).backward()
@@ -93,6 +110,7 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, scheduler, devi
 
         losses.append(loss.item())
     return float(np.mean(losses))
+
 
 # (Opcional) fase de validación
 
@@ -169,7 +187,7 @@ def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.devic
         beta_end=diffusion_cfg["beta_end"],
     )
     optimizer = Adam(model.parameters(), lr=train_cfg["lr"], betas=(0.9, 0.999))
-    scaler = torch.amp.GradScaler(enabled=(device.type == "cuda"))
+    scaler = GradScaler(enabled=(device.type == "cuda"))
     criterion = nn.MSELoss()
 
     # Checkpointing

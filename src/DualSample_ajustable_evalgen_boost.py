@@ -194,7 +194,7 @@ if __name__ == '__main__':
         "Rislab_Event_influence_volume/9"
     ]
 
-    b_size = 4
+    b_size = 768
 
     for c_route in Conditonal_routes:
         infer(args,DDPM_route, c_route, subset_ratio_ = 0.25, batch_size = b_size)

@@ -42,8 +42,8 @@ model_params:
 
 train_params:
   task_name: 'Rislab_Event_influence_volume'
-  batch_size: 4
-  num_epochs: 2
+  batch_size: 192
+  num_epochs: 100
   num_samples : 1
   num_grid_rows : 1
   lr: 0.0001

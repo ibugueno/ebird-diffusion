@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import tensorboard
 from tqdm import tqdm
+from torch.cuda.amp import GradScaler, autocast
 
 # Módulos del usuario
 from UnetClass2 import Unet
@@ -84,19 +85,16 @@ def train_one_epoch(model, loader, criterion, optimizer, scaler, scheduler, devi
         noisy_im = scheduler.add_noise(im, noise, timesteps)
 
         optimizer.zero_grad(set_to_none=True)
-        with torch.amp.autocast(device_type="cuda"):  #PyTorch AMP (Automatic Mixed Precision) permite que algunas operaciones se ejecuten en float16 (FP16) en lugar de float32 (FP32).
+        with autocast(enabled=(device.type == "cuda")):
             noise_pred = model(noisy_im, timesteps)
             loss = criterion(noise_pred, noise)
-        scaler.scale(loss).backward() #evitar problemas de underflow o overflow al usar float16 durante el entrenamiento.
+        scaler.scale(loss).backward()
         if grad_clip is not None:
-            scaler.unscale_(optimizer) #Desescala los gradientes previamente escalados por scaler.scale(loss).backward().
-            nn.utils.clip_grad_norm_(model.parameters(), grad_clip) #recorta (clippea) los gradientes que tienen una norma L2 superior a grad_clip
-            #Esto previene explosiones de gradiente, especialmente al entrenar modelos grandes o con ruido.
+            scaler.unscale_(optimizer)
+            nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
 
-
-        scaler.step(optimizer) #Realiza el paso de optimización usando los gradientes desescalados.
-        scaler.update() #Ajusta dinámicamente el factor de escala según si el paso fue exitoso o no.
-        #Esto permite mantener la máxima precisión posible sin causar errores numéricos.
+        scaler.step(optimizer)
+        scaler.update()
 
         epoch_losses.append(loss.item())
     return float(np.mean(epoch_losses))
@@ -168,7 +166,7 @@ def main(cfg_path: str, resume: bool = True):
     )
 
     optimizer = Adam(model.parameters(), lr=train_cfg["lr"], betas=(0.9, 0.999), weight_decay=train_cfg.get("weight_decay", 0.0))
-    scaler = torch.amp.GradScaler(enabled=(device.type == "cuda"))
+    scaler = GradScaler(enabled=(device.type == "cuda"))
     criterion = nn.MSELoss()
 
     # 5) Checkpointing ------------------------------------------------------------
