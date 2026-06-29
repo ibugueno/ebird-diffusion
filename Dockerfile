@@ -18,12 +18,13 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Instalar Miniconda.
+# Instalar Miniforge. Usa conda-forge y no requiere aceptar los términos de
+# servicio de los canales defaults de Anaconda durante un build no interactivo.
 RUN wget -q \
-        https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
-        -O /tmp/miniconda.sh && \
-    bash /tmp/miniconda.sh -b -p /opt/conda && \
-    rm /tmp/miniconda.sh
+        https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh \
+        -O /tmp/miniforge.sh && \
+    bash /tmp/miniforge.sh -b -p /opt/conda && \
+    rm /tmp/miniforge.sh
 
 ENV PATH=/opt/conda/bin:$PATH
 

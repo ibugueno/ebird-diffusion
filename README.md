@@ -26,7 +26,8 @@ El orquestador de las tres etapas es `src/run.py`.
 - NVIDIA Container Toolkit.
 - Espacio para datasets, checkpoints y muestras generadas.
 
-La imagen utiliza Ubuntu 20.04, Python 3.10, Miniconda, PyTorch 2.1 y CUDA 12.1.
+La imagen utiliza Ubuntu 20.04, Python 3.10, Miniforge/conda-forge, PyTorch 2.1
+y CUDA 12.1.
 
 > El código actual selecciona `cuda:0` y no implementa DDP ni DataParallel.
 > Aunque `run_docker.sh` expone varias GPU, un entrenamiento individual utiliza
