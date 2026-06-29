@@ -1,15 +1,13 @@
-# Entrenamiento RGBE-Gaze a 256×256
+# RGBE-Gaze training at 256x256
 
-La implementación RGBE-Gaze es independiente de los scripts MNIST ubicados en
-`src/`. Conserva el mismo flujo conceptual de `readme_help.txt`:
+The RGBE-Gaze implementation is independent from the archived MNIST scripts in
+`src/`. Its three stages are:
 
-1. entrenar la rama DDPM de imágenes;
-2. congelar esa rama y entrenar el condicionamiento por eventos;
-3. generar rostros desde representaciones de eventos acumulados.
+1. train the image DDPM branch;
+2. freeze that branch and train event conditioning;
+3. reconstruct faces from accumulated-event representations.
 
-## 1. Construir los manifests
-
-El volumen de entrada debe exponer:
+## Expected data layout
 
 ```text
 /app/Rislab_Event_influence_volume/dataset/rgbe-gaze/
@@ -17,88 +15,48 @@ El volumen de entrada debe exponer:
 └── event_accumulate_frames/user_N/expM/*.png
 ```
 
-Cada par debe compartir la misma ruta relativa y nombre. Para construir splits
-sin mezclar un usuario entre train, validación y test:
+Each target/event pair must have the same relative path and filename. The
+loader converts both images to grayscale, resizes them to the configured
+resolution, and scales pixels to `[-1, 1]`.
+
+## Split strategies
+
+For the current `user_1` experiment, reserve complete recordings:
 
 ```bash
 python scripts/build_rgbe_manifest.py \
   --dataset-root /app/Rislab_Event_influence_volume/dataset/rgbe-gaze \
-  --output-dir /app/Rislab_Event_influence_volume/rgbe-gaze/manifests \
-  --val-ratio 0.1 \
-  --test-ratio 0.1
+  --output-dir /app/Rislab_Event_influence_volume/rgbe-gaze/manifests-user-1-split \
+  --users user_1 \
+  --val-experiments exp5 \
+  --test-experiments exp6
 ```
 
-Para una prueba preliminar usando exclusivamente `user_1`:
+This is suitable for checking whether the model learns one identity. It is not
+evidence of generalization to new people. Once all users are available, omit
+`--users` and the experiment flags to create identity-disjoint splits using
+`--val-ratio` and `--test-ratio`.
 
-```bash
-python scripts/build_rgbe_manifest.py \
-  --dataset-root /app/Rislab_Event_influence_volume/dataset/rgbe-gaze \
-  --output-dir /app/Rislab_Event_influence_volume/rgbe-gaze/manifests-user-1 \
-  --users user_1
-```
+## Training and reconstruction
 
-En ese caso todas las muestras quedan en `train.csv`; no se crean muestras de
-validación o test porque la separación se realiza por identidad.
+Use `configs/rgbe_gaze/256_user1.yaml` for the current single-user run and
+follow [server_workflow.md](server_workflow.md) for exact commands. The image
+branch must finish before the conditional branch.
 
-Validación opcional de todos los PNG:
+The 256x256 configuration uses batch size 1 per GPU, AMP, gradient accumulation,
+gradient checkpointing, and attention only at 32x32 and 16x16. DDP replicates
+the model on every GPU; GPU memory is not pooled for one sample.
 
-```bash
-python scripts/validate_rgbe_dataset.py \
-  --dataset-root /app/Rislab_Event_influence_volume/dataset/rgbe-gaze \
-  --manifest /app/Rislab_Event_influence_volume/rgbe-gaze/manifests/all.csv
-```
+## Reconstruction metrics
 
-## 2. Entrenar la rama de imágenes
+`scripts/evaluate_rgbe_metrics.py` compares each `generated_*.png` with its
+corresponding `target_*.png` and reports:
 
-Prueba primero dos batches reales en una sola GPU:
+- MSE: pixel error; lower is better.
+- SSIM: structural similarity; higher is better.
+- PSNR in dB: signal-to-error ratio; higher is better.
 
-```bash
-python scripts/train_rgbe.py \
-  --stage image \
-  --device 1 \
-  --config configs/rgbe_gaze/256_smoke.yaml
-```
-
-Repite el smoke test con `--stage conditional`. Cuando ambas etapas terminen,
-utiliza `256.yaml` para el entrenamiento completo.
-
-Cuando el primer epoch corto funcione, usa las tres GPU con DDP:
-
-```bash
-CUDA_VISIBLE_DEVICES=1,2,4 torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
-  --stage image \
-  --config configs/rgbe_gaze/256.yaml
-```
-
-## 3. Entrenar la rama condicional
-
-Esta etapa exige el checkpoint `best.pt` de la rama anterior:
-
-```bash
-CUDA_VISIBLE_DEVICES=1,2,4 torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
-  --stage conditional \
-  --config configs/rgbe_gaze/256.yaml
-```
-
-## 4. Generar reconstrucciones
-
-```bash
-python scripts/sample_rgbe.py \
-  --config configs/rgbe_gaze/256.yaml \
-  --device 1 \
-  --limit 16
-```
-
-## Configuración de memoria
-
-La configuración inicial usa por GPU:
-
-- resolución 256×256;
-- batch 1;
-- AMP;
-- acumulación de 8 pasos;
-- gradient checkpointing;
-- atención únicamente a 32×32 y 16×16.
-
-Con tres procesos DDP, el batch efectivo es 24. DDP replica el modelo en cada
-GPU; no suma sus memorias para una sola muestra.
+All metrics operate on grayscale images scaled to `[0, 1]`. Evaluate only the
+held-out test split. Use a fixed diffusion seed for reproducibility and report
+the number of samples, mean, and standard deviation. A later paper experiment
+should additionally use unseen identities and, ideally, multiple sampling seeds.

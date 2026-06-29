@@ -22,11 +22,11 @@ def load_config(path: str | Path) -> dict[str, Any]:
     with config_path.open(encoding="utf-8") as stream:
         config = yaml.safe_load(stream)
     if not isinstance(config, dict):
-        raise ValueError(f"Configuración inválida: {config_path}")
+        raise ValueError(f"Invalid configuration: {config_path}")
     return _expand(config)
 
 
 def require_sections(config: dict[str, Any], *sections: str) -> None:
     missing = [section for section in sections if section not in config]
     if missing:
-        raise KeyError(f"Faltan secciones en la configuración: {', '.join(missing)}")
+        raise KeyError(f"Missing configuration sections: {', '.join(missing)}")

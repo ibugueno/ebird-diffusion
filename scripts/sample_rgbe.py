@@ -33,13 +33,14 @@ def _load_model(config: dict, device: torch.device):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generación condicionada RGBE-Gaze")
+    parser = argparse.ArgumentParser(description="Conditional RGBE-Gaze generation")
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--seed", type=int, help="Random seed used for diffusion noise")
     parser.add_argument(
         "--device",
         type=int,
-        help="Índice CUDA que se utilizará; por defecto usa cuda:0",
+        help="CUDA index to use; defaults to cuda:0",
     )
     args = parser.parse_args()
     config = load_config(args.config)
@@ -57,19 +58,24 @@ def main() -> None:
         device_index = args.device if args.device is not None else 0
         if device_index < 0 or device_index >= torch.cuda.device_count():
             raise ValueError(
-                f"GPU cuda:{device_index} no disponible; "
-                f"torch detecta {torch.cuda.device_count()} GPU"
+                f"GPU cuda:{device_index} is unavailable; "
+                f"PyTorch detects {torch.cuda.device_count()} GPUs"
             )
         device = torch.device("cuda", device_index)
         torch.cuda.set_device(device)
     elif args.device is not None:
-        raise RuntimeError("Se indicó --device, pero CUDA no está disponible")
+        raise RuntimeError("--device was provided, but CUDA is unavailable")
     else:
         device = torch.device("cpu")
     model = _load_model(config, device)
     scheduler = LinearNoiseScheduler(**config["diffusion"])
     output_root = Path(sampling["output_dir"])
-    limit = args.limit if args.limit is not None else int(sampling.get("limit", len(dataset)))
+    seed = args.seed if args.seed is not None else int(sampling.get("seed", 44))
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    configured_limit = args.limit if args.limit is not None else sampling.get("limit")
+    limit = len(dataset) if configured_limit is None or int(configured_limit) < 0 else int(configured_limit)
     generated = 0
 
     with torch.inference_mode():
@@ -101,7 +107,7 @@ def main() -> None:
                 generated += 1
             if generated >= limit:
                 break
-    print(f"Generadas {generated} muestras en {output_root}")
+    print(f"Generated {generated} samples in {output_root}")
 
 
 if __name__ == "__main__":

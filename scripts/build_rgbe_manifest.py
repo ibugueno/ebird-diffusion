@@ -13,7 +13,7 @@ from ebird.data import build_manifests
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Construye manifests pareados RGBE-Gaze")
+    parser = argparse.ArgumentParser(description="Build paired RGBE-Gaze manifests")
     parser.add_argument("--dataset-root", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--val-ratio", type=float, default=0.1)
@@ -22,12 +22,22 @@ def main() -> None:
     parser.add_argument(
         "--users",
         nargs="+",
-        help="Usuarios a incluir, por ejemplo: --users user_1 user_2",
+        help="Users to include, for example: --users user_1 user_2",
     )
     parser.add_argument(
         "--strict-pairs",
         action="store_true",
-        help="Falla si encuentra un frame o evento sin su pareja",
+        help="Fail when a target frame or event representation has no pair",
+    )
+    parser.add_argument(
+        "--val-experiments",
+        nargs="*",
+        help="Experiments assigned to validation, for example: exp5",
+    )
+    parser.add_argument(
+        "--test-experiments",
+        nargs="*",
+        help="Experiments assigned to testing, for example: exp6",
     )
     args = parser.parse_args()
     counts = build_manifests(
@@ -38,6 +48,8 @@ def main() -> None:
         seed=args.seed,
         include_users=args.users,
         strict_pairs=args.strict_pairs,
+        val_experiments=args.val_experiments,
+        test_experiments=args.test_experiments,
     )
     print(json.dumps({"status": "ok", "counts": counts}, indent=2))
 

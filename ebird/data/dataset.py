@@ -10,7 +10,7 @@ from torchvision.transforms import functional as TF
 
 
 class RGBEGazeDataset(Dataset):
-    """Dataset pareado frame gris/eventos acumulados basado en un manifest."""
+    """Manifest-backed paired grayscale-frame/accumulated-event dataset."""
 
     def __init__(
         self,
@@ -27,7 +27,7 @@ class RGBEGazeDataset(Dataset):
         with self.manifest_path.open(newline="", encoding="utf-8") as stream:
             self.rows = list(csv.DictReader(stream))
         if not self.rows:
-            raise ValueError(f"Manifest vacío: {self.manifest_path}")
+            raise ValueError(f"Empty manifest: {self.manifest_path}")
         if self.resolution <= 0:
             raise ValueError("resolution debe ser positiva")
 

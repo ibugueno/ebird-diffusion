@@ -19,7 +19,7 @@ class SinusoidalTimeEmbedding(nn.Module):
     def __init__(self, dimension: int):
         super().__init__()
         if dimension % 2:
-            raise ValueError("time_embedding_dim debe ser par")
+            raise ValueError("time_embedding_dim must be even")
         self.dimension = dimension
 
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
@@ -58,7 +58,7 @@ class SpatialAttention(nn.Module):
     def __init__(self, channels: int, heads: int):
         super().__init__()
         if channels % heads:
-            raise ValueError(f"{channels=} debe ser divisible por {heads=}")
+            raise ValueError(f"{channels=} must be divisible by {heads=}")
         self.norm = nn.GroupNorm(_groups(channels), channels)
         self.attention = nn.MultiheadAttention(channels, heads, batch_first=True)
 
@@ -92,7 +92,7 @@ class Upsample(nn.Module):
 
 
 class DiffusionUNet(nn.Module):
-    """U-Net DDPM con atención restringida a resoluciones configurables."""
+    """DDPM U-Net with attention restricted to configured resolutions."""
 
     def __init__(
         self,
@@ -112,10 +112,10 @@ class DiffusionUNet(nn.Module):
         self.attention_resolutions = {int(value) for value in attention_resolutions}
         self.gradient_checkpointing = bool(gradient_checkpointing)
         if len(self.channels) < 2:
-            raise ValueError("Se requieren al menos dos niveles de canales")
+            raise ValueError("At least two channel levels are required")
         divisor = 2 ** (len(self.channels) - 1)
         if self.image_size % divisor:
-            raise ValueError(f"image_size debe ser divisible por {divisor}")
+            raise ValueError(f"image_size must be divisible by {divisor}")
 
         self.time_embedding = nn.Sequential(
             SinusoidalTimeEmbedding(time_embedding_dim),
@@ -174,14 +174,14 @@ class DiffusionUNet(nn.Module):
         self, block: nn.Module, inputs: torch.Tensor, time_embedding: torch.Tensor
     ) -> torch.Tensor:
         if self.gradient_checkpointing and self.training:
-            return checkpoint(block, inputs, time_embedding)
+            return checkpoint(block, inputs, time_embedding, use_reentrant=False)
         return block(inputs, time_embedding)
 
     def _attention(self, block: nn.Module, inputs: torch.Tensor) -> torch.Tensor:
         if isinstance(block, nn.Identity):
             return inputs
         if self.gradient_checkpointing and self.training:
-            return checkpoint(block, inputs)
+            return checkpoint(block, inputs, use_reentrant=False)
         return block(inputs)
 
     def forward(

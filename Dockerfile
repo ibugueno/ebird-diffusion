@@ -2,7 +2,7 @@ FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Dependencias básicas y librerías requeridas por OpenCV.
+# Base utilities and libraries required by OpenCV.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -18,8 +18,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Instalar Miniforge. Usa conda-forge y no requiere aceptar los términos de
-# servicio de los canales defaults de Anaconda durante un build no interactivo.
+# Install Miniforge. It uses conda-forge and does not require accepting the
+# Anaconda default-channel Terms of Service during a non-interactive build.
 RUN wget -q \
         https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh \
         -O /tmp/miniforge.sh && \
@@ -28,13 +28,13 @@ RUN wget -q \
 
 ENV PATH=/opt/conda/bin:$PATH
 
-# environment.yml instala PyTorch 2.1 y sus wheels para CUDA 12.1.
+# environment.yml installs PyTorch 2.1 and its CUDA 12.1 wheels.
 COPY environment.yml /tmp/environment.yml
 
 RUN conda env create -f /tmp/environment.yml && \
     conda clean -afy
 
-# Ejecutar los siguientes RUN dentro del entorno EVDiff.
+# Run subsequent build commands inside the EVDiff environment.
 SHELL ["conda", "run", "--no-capture-output", "-n", "EVDiff", "/bin/bash", "-c"]
 
 RUN python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA build:', torch.version.cuda)"
@@ -49,7 +49,7 @@ ENV PATH=/opt/conda/envs/EVDiff/bin:/opt/conda/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Activar EVDiff automáticamente al abrir una shell interactiva.
+# Activate EVDiff automatically in interactive shells.
 RUN echo "source /opt/conda/etc/profile.d/conda.sh" >> /root/.bashrc && \
     echo "conda activate EVDiff" >> /root/.bashrc
 

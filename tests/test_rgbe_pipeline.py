@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,27 +15,84 @@ from ebird.data import RGBEGazeDataset, build_manifests, validate_manifest
 from ebird.diffusion import LinearNoiseScheduler
 from ebird.models.conditional import conditional_from_config
 from ebird.models.unet import unet_from_config
+from scripts.evaluate_rgbe_metrics import compute_metrics
 
 
-def _create_dataset(root: Path, users: int = 4, samples: int = 2) -> None:
+SKIMAGE_AVAILABLE = importlib.util.find_spec("skimage") is not None
+
+
+def _create_dataset(
+    root: Path,
+    users: int = 4,
+    samples: int = 2,
+    experiments: int = 1,
+) -> None:
     for user in range(1, users + 1):
-        for branch in ("gray_frames", "event_accumulate_frames"):
-            directory = root / branch / f"user_{user}" / "exp1"
-            directory.mkdir(parents=True)
-            for index in range(samples):
-                pixels = np.zeros((40, 40), dtype=np.uint8)
-                pixels[8:32, 10 + index : 30 + index] = 100 + user * 20
-                if branch == "event_accumulate_frames":
-                    pixels = np.where(pixels > 0, 255, 0).astype(np.uint8)
-                filename = (
-                    f"user_{user}_exp1_frame_{index}_rgbts_{index}_"
-                    f"evts_{index}-{index + 33}_bbox_0-0-40-40_"
-                    "size_512_winms_33_cropkb_20.png"
-                )
-                Image.fromarray(pixels).save(directory / filename)
+        for experiment in range(1, experiments + 1):
+            for branch in ("gray_frames", "event_accumulate_frames"):
+                directory = root / branch / f"user_{user}" / f"exp{experiment}"
+                directory.mkdir(parents=True)
+                for index in range(samples):
+                    pixels = np.zeros((40, 40), dtype=np.uint8)
+                    pixels[8:32, 10 + index : 30 + index] = 100 + user * 20
+                    if branch == "event_accumulate_frames":
+                        pixels = np.where(pixels > 0, 255, 0).astype(np.uint8)
+                    filename = (
+                        f"user_{user}_exp{experiment}_frame_{index}_rgbts_{index}_"
+                        f"evts_{index}-{index + 33}_bbox_0-0-40-40_"
+                        "size_512_winms_33_cropkb_20.png"
+                    )
+                    Image.fromarray(pixels).save(directory / filename)
 
 
 class RGBEGazePipelineTest(unittest.TestCase):
+    def test_experiment_split_for_one_user(self):
+        with tempfile.TemporaryDirectory(prefix="rgbe-split-") as temporary:
+            root = Path(temporary)
+            dataset_root = root / "rgbe-gaze"
+            manifest_dir = root / "manifests"
+            _create_dataset(dataset_root, users=1, samples=2, experiments=6)
+            counts = build_manifests(
+                dataset_root,
+                manifest_dir,
+                include_users=["user_1"],
+                val_experiments=["5"],
+                test_experiments=["exp6"],
+            )
+            self.assertEqual(counts, {
+                "paired": 12,
+                "skipped_without_event": 0,
+                "skipped_without_target": 0,
+                "train": 8,
+                "val": 2,
+                "test": 2,
+            })
+            expected = {
+                "train": {"exp1", "exp2", "exp3", "exp4"},
+                "val": {"exp5"},
+                "test": {"exp6"},
+            }
+            for split, experiments in expected.items():
+                with (manifest_dir / f"{split}.csv").open(newline="") as stream:
+                    rows = list(csv.DictReader(stream))
+                self.assertEqual({row["experiment"] for row in rows}, experiments)
+                self.assertEqual({row["user"] for row in rows}, {"user_1"})
+
+    @unittest.skipUnless(SKIMAGE_AVAILABLE, "scikit-image is not installed")
+    def test_reconstruction_metrics(self):
+        target = np.zeros((16, 16), dtype=np.float32)
+        identical = compute_metrics(target, target.copy())
+        self.assertEqual(identical["mse"], 0.0)
+        self.assertEqual(identical["ssim"], 1.0)
+        self.assertTrue(np.isinf(identical["psnr"]))
+
+        generated = target.copy()
+        generated[4:12, 4:12] = 1.0
+        changed = compute_metrics(target, generated)
+        self.assertGreater(changed["mse"], 0.0)
+        self.assertLess(changed["ssim"], 1.0)
+        self.assertTrue(np.isfinite(changed["psnr"]))
+
     def test_user_filter(self):
         with tempfile.TemporaryDirectory(prefix="rgbe-filter-") as temporary:
             root = Path(temporary)

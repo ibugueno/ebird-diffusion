@@ -30,16 +30,16 @@ def initialize(device_index: int | None = None) -> DistributedContext:
     if torch.cuda.is_available():
         if world_size > 1 and device_index is not None:
             raise ValueError(
-                "--device sólo es válido para un proceso. En DDP selecciona las "
-                "GPU con CUDA_VISIBLE_DEVICES antes de torchrun."
+                "--device is only valid for a single process. For DDP, select "
+                "GPUs with CUDA_VISIBLE_DEVICES before torchrun."
             )
         selected_index = local_rank if world_size > 1 else (
             int(device_index) if device_index is not None else 0
         )
         if selected_index < 0 or selected_index >= torch.cuda.device_count():
             raise ValueError(
-                f"GPU cuda:{selected_index} no disponible; "
-                f"torch detecta {torch.cuda.device_count()} GPU"
+                f"GPU cuda:{selected_index} is unavailable; "
+                f"PyTorch detects {torch.cuda.device_count()} GPUs"
             )
         device = torch.device("cuda", selected_index)
         torch.cuda.set_device(device)

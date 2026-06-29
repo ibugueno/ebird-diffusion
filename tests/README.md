@@ -1,26 +1,25 @@
-# Smoke test sin dataset
+# Dataset-free smoke test
 
-Este test comprueba el entorno Python, CUDA, los cargadores de datos, el
-scheduler y las dos ramas del modelo usando imágenes generadas temporalmente.
-No necesita MNIST ni N-MNIST.
+This test checks Python, CUDA, the data loaders, diffusion scheduler, and both
+model branches using temporary synthetic images. It does not require a dataset.
 
-Dentro del contenedor:
+Inside the container:
 
 ```bash
 python tests/smoke_test.py
 ```
 
-Para exigir que se use la GPU y fallar si CUDA no está disponible:
+Require CUDA and fail when it is unavailable:
 
 ```bash
 python tests/smoke_test.py --device cuda
 ```
 
-El resultado también se escribe en:
+The report is also written to:
 
 ```text
 /app/Rislab_Event_influence_volume/smoke_test/smoke_test_report.json
 ```
 
-Con `run_docker.sh`, ese archivo quedará persistido en el directorio de salida
-del host bajo `smoke_test/smoke_test_report.json`.
+With `run_docker.sh`, the report persists under `smoke_test/` in the host output
+directory.

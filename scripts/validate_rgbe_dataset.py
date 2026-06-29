@@ -13,7 +13,7 @@ from ebird.data import validate_manifest
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Valida archivos de un manifest RGBE-Gaze")
+    parser = argparse.ArgumentParser(description="Validate files from an RGBE-Gaze manifest")
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--dataset-root", required=True, type=Path)
     parser.add_argument("--skip-image-check", action="store_true")

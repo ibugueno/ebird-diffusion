@@ -1,177 +1,86 @@
 # Ebird Diffusion
 
-Reconstrucción de imágenes a partir de eventos mediante un modelo de difusión
-DDPM condicionado. El proyecto entrena primero una U-Net con imágenes MNIST y,
-posteriormente, una rama condicional con representaciones de eventos N-MNIST.
+Conditional DDPM reconstruction of grayscale face images from accumulated event
+representations. The current implementation supports RGBE-Gaze at 256x256,
+single-GPU device selection, AMP, gradient checkpointing, and multi-GPU DDP.
 
-Esta rama deriva del trabajo de Fabián Valderrama disponible en `Ebird_MNIST`.
-La rama `fv-mnist` conserva esa versión sin modificaciones; `develop` contiene
-los ajustes de Docker, portabilidad y validación del entorno.
+This repository derives from Fabian Valderrama's `Ebird_MNIST` work. The
+`fv-mnist` branch preserves that version, while `develop` contains the Docker
+environment and the modular RGBE-Gaze pipeline. The archived MNIST code remains
+under `src/`.
 
-## Flujo del modelo
+## Pipeline
 
-El proceso completo consta de tres etapas:
+1. Build paired target/event manifests.
+2. Train the unconditional image DDPM.
+3. Freeze the image branch and train event conditioning.
+4. Reconstruct held-out targets and evaluate MSE, SSIM, and PSNR.
 
-1. Entrenamiento de la U-Net DDPM con imágenes MNIST.
-2. Entrenamiento de la rama condicional con pares MNIST/N-MNIST.
-3. Generación de imágenes y evaluación de los checkpoints.
-
-El orquestador de las tres etapas es `src/run.py`.
-
-## Requisitos del servidor
+## Server requirements
 
 - Docker Engine.
-- GPU NVIDIA.
-- Driver NVIDIA compatible con CUDA 12.1.
+- NVIDIA GPU and driver compatible with CUDA 12.1.
 - NVIDIA Container Toolkit.
-- Espacio para datasets, checkpoints y muestras generadas.
+- Storage for datasets, checkpoints, logs, and generated samples.
 
-La imagen utiliza Ubuntu 20.04, Python 3.10, Miniforge/conda-forge, PyTorch 2.1
-y CUDA 12.1.
+The image uses Ubuntu 20.04, Python 3.10, Miniforge, PyTorch 2.1, and CUDA 12.1.
+It starts Bash by default and does not launch training automatically.
 
-> El código actual selecciona `cuda:0` y no implementa DDP ni DataParallel.
-> Aunque `run_docker.sh` expone varias GPU, un entrenamiento individual utiliza
-> solamente la primera GPU visible.
-
-## Construir la imagen
-
-Desde la raíz del repositorio:
+## Build and run
 
 ```bash
 docker build -t ignacio_event_ebird .
-```
-
-El Dockerfile abre Bash por defecto; no inicia automáticamente un entrenamiento.
-
-## Estructura esperada del dataset
-
-La ruta de entrada configurada en `run_docker.sh` debe contener directamente:
-
-```text
-reconstruction/
-├── MNIST/
-│   ├── Train/
-│   │   ├── 0/
-│   │   └── ... 9/
-│   └── Test/
-│       ├── 0/
-│       └── ... 9/
-└── N-MNIST/
-    └── 33ms/
-        ├── Train/
-        │   ├── 0/
-        │   └── ... 9/
-        └── Test/
-            ├── 0/
-            └── ... 9/
-```
-
-Las imágenes MNIST y N-MNIST emparejadas deben compartir el mismo nombre de
-archivo dentro de cada clase.
-
-## Levantar el contenedor
-
-El script incluido configura GPU, memoria compartida y montajes:
-
-```bash
 ./run_docker.sh
 ```
 
-Los volúmenes quedan organizados así:
+The script mounts:
 
-| Host | Contenedor | Uso |
+| Host | Container | Purpose |
 |---|---|---|
-| `/home/ignacio.bugueno/cachefs/datasets/processed_data/reconstruction` | `/app/Rislab_Event_influence_volume/dataset` | Dataset de entrada, sólo lectura |
-| `/home/ignacio.bugueno/cachefs/event_reconstruction/output/ebird` | `/app/Rislab_Event_influence_volume` | Checkpoints, logs, muestras y reportes |
+| `/home/ignacio.bugueno/cachefs/datasets/processed_data/reconstruction` | `/app/Rislab_Event_influence_volume/dataset` | Read-only input data |
+| `/home/ignacio.bugueno/cachefs/event_reconstruction/output/ebird` | `/app/Rislab_Event_influence_volume` | Checkpoints, logs, samples, and reports |
 
-Para otro servidor, edita únicamente las rutas del lado izquierdo en
-`run_docker.sh`.
+Edit only the host-side paths in `run_docker.sh` when moving to another server.
+The container exposes all GPUs; each command chooses its GPU with `--device`.
 
-## Smoke test sin dataset
+## RGBE-Gaze data
 
-Una vez dentro del contenedor, se puede validar el entorno sin disponer todavía
-de MNIST/N-MNIST:
+```text
+/app/Rislab_Event_influence_volume/dataset/rgbe-gaze/
+├── gray_frames/
+│   └── user_N/expM/*.png
+└── event_accumulate_frames/
+    └── user_N/expM/*.png
+```
+
+A target and its event representation must share the same relative path and
+filename. Unpaired files are ignored by default and reported by the manifest
+builder. Input PNG files may remain at 512x512; the loader resizes them in
+memory to the configured model resolution.
+
+For the exact `user_1` split, 256x256 training, sampling, and evaluation
+commands, follow [docs/server_workflow.md](docs/server_workflow.md). Design and
+metric details are documented in [docs/rgbe_gaze.md](docs/rgbe_gaze.md).
+
+## Smoke test
+
+Test the environment and both model branches without a real dataset:
 
 ```bash
 python tests/smoke_test.py --device cuda
 ```
 
-La prueba comprueba:
+The JSON report is saved under
+`/app/Rislab_Event_influence_volume/smoke_test/`, which persists through the
+host output mount.
 
-- disponibilidad de PyTorch y CUDA;
-- carga de imágenes sintéticas;
-- scheduler de difusión;
-- forward y backward de la U-Net;
-- forward y backward de la rama condicional;
-- congelamiento de la U-Net base;
-- escritura en el volumen de resultados.
+## Legacy MNIST workflow
 
-El reporte queda persistido en:
+The original MNIST/N-MNIST implementation is preserved under `src/` and has not
+been translated or refactored. Its stage commands are listed in
+`readme_help.txt`.
 
-```text
-/home/ignacio.bugueno/cachefs/event_reconstruction/output/ebird/
-└── smoke_test/smoke_test_report.json
-```
+## License
 
-También es posible probar el modelo explícitamente en CPU:
-
-```bash
-python tests/smoke_test.py --device cpu
-```
-
-## Entrenamiento
-
-Todos los comandos siguientes se ejecutan dentro del contenedor desde `/app`.
-
-La implementación original para MNIST permanece en `src/`. Para entrenar
-RGBE-Gaze a 256×256 con manifests por usuario, AMP y DDP, consulta
-[`docs/rgbe_gaze.md`](docs/rgbe_gaze.md).
-
-Para la secuencia exacta de comandos dentro del servidor, consulta
-[`docs/server_workflow.md`](docs/server_workflow.md).
-
-Entrenar la U-Net base:
-
-```bash
-python src/Train_Image_Branch.py --config src/default.yaml
-```
-
-Entrenar la rama condicional después de generar el checkpoint base:
-
-```bash
-python src/Train_Conditional_Partition.py --config src/default.yaml
-```
-
-Ejecutar la generación:
-
-```bash
-python src/DualSample_ajustable_evalgen_boost.py --config src/default.yaml
-```
-
-Ejecutar las tres etapas secuencialmente:
-
-```bash
-python src/run.py
-```
-
-Los hiperparámetros, rutas internas, batch size y número de épocas se encuentran
-en `src/default.yaml`.
-
-## Resultados
-
-Los resultados se escriben bajo `/app/Rislab_Event_influence_volume`, que está
-montado en el directorio de salida del host. Entre ellos se encuentran:
-
-```text
-Rislab_Event_influence_volume/
-├── DDPM/                  # checkpoint y logs de la U-Net base
-├── all/                   # entrenamiento condicional general
-├── 0/ ... 9/              # entrenamientos condicionales por clase
-├── inferencia.log
-└── smoke_test/
-```
-
-## Licencia
-
-Este repositorio conserva la licencia GNU General Public License v3 del proyecto
-`Ebird_MNIST`. Consulta `LICENSE` para conocer sus términos.
+This repository retains the GNU General Public License v3 from `Ebird_MNIST`.
+See `LICENSE` for its terms.

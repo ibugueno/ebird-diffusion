@@ -1,3 +1,3 @@
-"""Implementación escalable de Ebird para reconstrucción RGBE-Gaze."""
+"""Scalable Ebird implementation for RGBE-Gaze reconstruction."""
 
 __version__ = "0.1.0"

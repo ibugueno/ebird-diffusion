@@ -25,13 +25,13 @@ EXPERIMENT_PATTERN = re.compile(r"^exp(?:eriment)?_?(\d+)$", re.IGNORECASE)
 
 def _image_map(root: Path) -> dict[Path, Path]:
     if not root.is_dir():
-        raise FileNotFoundError(f"No existe el directorio de imágenes: {root}")
+        raise FileNotFoundError(f"Image directory does not exist: {root}")
     images: dict[Path, Path] = {}
     for path in sorted(root.rglob("*")):
         if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES:
             relative = path.relative_to(root)
             if relative in images:
-                raise ValueError(f"Ruta relativa duplicada: {relative}")
+                raise ValueError(f"Duplicate relative path: {relative}")
             images[relative] = path
     return images
 
@@ -48,7 +48,7 @@ def _parse_identity(relative_path: Path) -> tuple[str, str]:
             experiment = f"exp{int(experiment_match.group(1))}"
     if user == "unknown":
         raise ValueError(
-            f"No se pudo inferir el usuario desde la ruta: {relative_path}"
+            f"Could not infer a user from path: {relative_path}"
         )
     return user, experiment
 
@@ -64,6 +64,12 @@ def _normalize_user(user: str) -> str:
     return f"user_{int(match.group(1))}" if match else value
 
 
+def _normalize_experiment(experiment: str) -> str:
+    value = str(experiment).strip().lower()
+    match = re.fullmatch(r"(?:exp(?:eriment)?_?)?(\d+)", value)
+    return f"exp{int(match.group(1))}" if match else value
+
+
 def split_users(
     users: Iterable[str],
     *,
@@ -73,9 +79,9 @@ def split_users(
 ) -> dict[str, str]:
     unique_users = sorted(set(users), key=_numeric_user_key)
     if not unique_users:
-        raise ValueError("No se encontraron usuarios")
+        raise ValueError("No users were found")
     if val_ratio < 0 or test_ratio < 0 or val_ratio + test_ratio >= 1:
-        raise ValueError("Los ratios de validación y test deben sumar menos de 1")
+        raise ValueError("Validation and test ratios must add up to less than 1")
 
     random.Random(seed).shuffle(unique_users)
     count = len(unique_users)
@@ -121,6 +127,8 @@ def build_manifests(
     seed: int = 44,
     include_users: Iterable[str] | None = None,
     strict_pairs: bool = False,
+    val_experiments: Iterable[str] | None = None,
+    test_experiments: Iterable[str] | None = None,
 ) -> dict[str, int]:
     dataset_root = Path(dataset_root).resolve()
     output_dir = Path(output_dir).resolve()
@@ -137,7 +145,7 @@ def build_manifests(
         missing_users = sorted(selected_users - available_users, key=_numeric_user_key)
         if missing_users:
             raise ValueError(
-                "No se encontraron los usuarios solicitados: " + ", ".join(missing_users)
+                "Requested users were not found: " + ", ".join(missing_users)
             )
         targets = {
             relative: path
@@ -155,14 +163,14 @@ def build_manifests(
     if strict_pairs and (missing_events or missing_targets):
         examples = [str(path) for path in (missing_events + missing_targets)[:10]]
         raise ValueError(
-            "El dataset no está completamente emparejado. "
-            f"Sin evento: {len(missing_events)}; sin frame: {len(missing_targets)}; "
-            f"ejemplos: {examples}"
+            "The dataset is not fully paired. "
+            f"Missing event: {len(missing_events)}; missing target: {len(missing_targets)}; "
+            f"examples: {examples}"
         )
 
     paired_paths = sorted(set(targets) & set(events))
     if not paired_paths:
-        raise ValueError("No se encontraron pares frame/evento válidos")
+        raise ValueError("No valid target/event pairs were found")
 
     rows: list[dict[str, str]] = []
     for relative in paired_paths:
@@ -178,14 +186,45 @@ def build_manifests(
             }
         )
 
-    assignments = split_users(
-        (row["user"] for row in rows),
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-        seed=seed,
-    )
-    for row in rows:
-        row["split"] = assignments[row["user"]]
+    validation_experiments = {
+        _normalize_experiment(value) for value in (val_experiments or [])
+    }
+    testing_experiments = {
+        _normalize_experiment(value) for value in (test_experiments or [])
+    }
+    overlap = validation_experiments & testing_experiments
+    if overlap:
+        raise ValueError(
+            "Validation and test experiments overlap: " + ", ".join(sorted(overlap))
+        )
+
+    if validation_experiments or testing_experiments:
+        available_experiments = {row["experiment"] for row in rows}
+        requested = validation_experiments | testing_experiments
+        missing_experiments = sorted(requested - available_experiments)
+        if missing_experiments:
+            raise ValueError(
+                "Requested experiments were not found: "
+                + ", ".join(missing_experiments)
+            )
+        for row in rows:
+            if row["experiment"] in testing_experiments:
+                row["split"] = "test"
+            elif row["experiment"] in validation_experiments:
+                row["split"] = "val"
+            else:
+                row["split"] = "train"
+        if not any(row["split"] == "train" for row in rows):
+            raise ValueError("The experiment split produced an empty training set")
+    else:
+        assignments = split_users(
+            (row["user"] for row in rows),
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            seed=seed,
+        )
+        for row in rows:
+            row["split"] = assignments[row["user"]]
 
     _write_manifest(output_dir / "all.csv", rows)
     counts = Counter(row["split"] for row in rows)
@@ -219,14 +258,14 @@ def validate_manifest(
         for field in ("target_path", "event_path"):
             path = dataset_root / row[field]
             if not path.is_file():
-                errors.append(f"línea {row_index}: no existe {path}")
+                errors.append(f"line {row_index}: path does not exist: {path}")
                 continue
             if verify_images:
                 try:
                     with Image.open(path) as image:
                         image.verify()
-                except Exception as exc:  # Pillow expone varias excepciones.
-                    errors.append(f"línea {row_index}: imagen inválida {path}: {exc}")
+                except Exception as exc:  # Pillow may raise several exception types.
+                    errors.append(f"line {row_index}: invalid image {path}: {exc}")
         if len(errors) >= 50:
             break
     return {

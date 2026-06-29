@@ -54,9 +54,9 @@ def _dataset(config: dict, split: str, stage: Stage) -> RGBEGazeDataset:
     manifest_path = Path(data["manifest_dir"]) / f"{split}.csv"
     if not manifest_path.is_file():
         raise FileNotFoundError(
-            f"No existe el manifest requerido: {manifest_path}. "
-            "Ejecuta primero scripts/build_rgbe_manifest.py con el mismo "
-            "directorio configurado en data.manifest_dir."
+            f"Required manifest does not exist: {manifest_path}. "
+            "Run scripts/build_rgbe_manifest.py first with the same directory "
+            "configured in data.manifest_dir."
         )
     return RGBEGazeDataset(
         manifest_path,
@@ -104,8 +104,8 @@ def _load_base(config: dict, device: torch.device) -> nn.Module:
     checkpoint_path = Path(config["training"]["base_checkpoint"])
     if not checkpoint_path.is_file():
         raise FileNotFoundError(
-            f"No existe el checkpoint base: {checkpoint_path}. "
-            "Ejecuta primero --stage image."
+            f"Base checkpoint does not exist: {checkpoint_path}. "
+            "Run --stage image first."
         )
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     base.load_state_dict(checkpoint["model_state_dict"])
@@ -249,7 +249,7 @@ def train(
     device_index: int | None = None,
 ) -> None:
     if stage not in ("image", "conditional"):
-        raise ValueError(f"Etapa inválida: {stage}")
+        raise ValueError(f"Invalid stage: {stage}")
     context = initialize(device_index=device_index)
     training = config["training"]
     output_dir = Path(training["output_dir"]) / stage
@@ -305,7 +305,7 @@ def train(
                 json.dumps(config, indent=2) + "\n", encoding="utf-8"
             )
             logging.info(
-                "Etapa=%s | dispositivo=%s | procesos=%d | muestras=%d | parámetros entrenables=%d",
+                "Stage=%s | device=%s | processes=%d | samples=%d | trainable_parameters=%d",
                 stage,
                 context.device,
                 context.world_size,

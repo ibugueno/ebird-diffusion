@@ -17,7 +17,7 @@ def _zero_conv(channels: int) -> nn.Conv2d:
 
 
 class ConditionEncoder(nn.Module):
-    """Encoder tipo ControlNet que genera residuos inicializados en cero."""
+    """ControlNet-style encoder that produces zero-initialized residuals."""
 
     def __init__(self, base: DiffusionUNet, time_embedding_dim: int, dropout: float):
         super().__init__()
@@ -49,7 +49,7 @@ class ConditionEncoder(nn.Module):
         self, block: nn.Module, inputs: torch.Tensor, time_embedding: torch.Tensor
     ) -> torch.Tensor:
         if self.gradient_checkpointing and self.training:
-            return checkpoint(block, inputs, time_embedding)
+            return checkpoint(block, inputs, time_embedding, use_reentrant=False)
         return block(inputs, time_embedding)
 
     def forward(

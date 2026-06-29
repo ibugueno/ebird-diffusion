@@ -13,14 +13,14 @@ from ebird.training import train
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Entrenamiento DDPM RGBE-Gaze")
+    parser = argparse.ArgumentParser(description="RGBE-Gaze DDPM training")
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--stage", required=True, choices=("image", "conditional"))
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument(
         "--device",
         type=int,
-        help="Índice CUDA para ejecución en una sola GPU, por ejemplo --device 1",
+        help="CUDA index for single-GPU execution, for example --device 1",
     )
     args = parser.parse_args()
     config = load_config(args.config)

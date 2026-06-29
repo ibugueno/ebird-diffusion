@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke test del entorno Ebird sin utilizar el dataset real."""
+"""Smoke-test the Ebird environment without the real dataset."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def select_device(requested: str) -> torch.device:
     if requested == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if requested == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("Se solicitó CUDA, pero torch.cuda.is_available() es False")
+        raise RuntimeError("CUDA was requested, but torch.cuda.is_available() is False")
     return torch.device(requested)
 
 
@@ -115,8 +115,8 @@ def check_models(config: dict, device: torch.device) -> dict[str, object]:
         parameter.grad for parameter in combined.partial_unet.parameters()
         if parameter.grad is not None
     ]
-    assert not frozen_gradients, "La U-Net base debería permanecer congelada"
-    assert trainable_gradients, "La rama condicional debería recibir gradientes"
+    assert not frozen_gradients, "The base U-Net must remain frozen"
+    assert trainable_gradients, "The conditional branch must receive gradients"
 
     return {
         "device": str(device),
@@ -135,7 +135,7 @@ def main() -> None:
         "--output-dir",
         type=Path,
         default=Path("/app/Rislab_Event_influence_volume/smoke_test"),
-        help="Directorio donde se escribirá smoke_test_report.json",
+        help="Directory where smoke_test_report.json will be written",
     )
     args = parser.parse_args()
 

@@ -1,44 +1,39 @@
-REQUISITOS DEL SERVIDOR
+SERVER REQUIREMENTS
 
 - Docker Engine
-- GPU NVIDIA y driver compatible con CUDA 12.1
+- NVIDIA GPU and a driver compatible with CUDA 12.1
 - NVIDIA Container Toolkit
-- Dataset organizado bajo Rislab_Event_influence_volume/dataset
+- Dataset under Rislab_Event_influence_volume/dataset
 
 
-1. CONSTRUIR LA IMAGEN
+1. BUILD THE IMAGE
 
-docker build -t ebird-mnist:cu121 .
-
-
-2. EJECUTAR TODO EL FLUJO
-
-El directorio indicado en /ruta/datos-y-resultados debe contener el dataset y
-también recibirá checkpoints, logs y muestras generadas.
-
-docker run --rm \
-  --gpus "device=0" \
-  --ipc=host \
-  --name ebird-training \
-  -v /ruta/datos-y-resultados:/app/Rislab_Event_influence_volume \
-  ebird-mnist:cu121
+docker build -t ignacio_event_ebird .
 
 
-3. ABRIR UNA TERMINAL DE DEPURACIÓN
+2. START AN INTERACTIVE CONTAINER
 
-docker run --rm -it \
-  --gpus "device=0" \
-  --ipc=host \
-  -v /ruta/datos-y-resultados:/app/Rislab_Event_influence_volume \
-  ebird-mnist:cu121 bash
+The host output directory receives checkpoints, logs, generated samples, and
+reports. The host dataset directory is mounted read-only.
 
-Dentro del contenedor:
-
-conda run --no-capture-output -n EVDiff python src/Train_Image_Branch.py --config src/default.yaml
-conda run --no-capture-output -n EVDiff python src/Train_Conditional_Partition.py --config src/default.yaml
-conda run --no-capture-output -n EVDiff python src/DualSample_ajustable_evalgen_boost.py --config src/default.yaml
+./run_docker.sh
 
 
-4. VERIFICAR LA GPU DENTRO DEL CONTENEDOR
+3. RUN THE RGBE-GAZE WORKFLOW
 
-conda run -n EVDiff python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
+Follow docs/server_workflow.md for manifest generation, 256x256 training,
+sampling, and MSE/SSIM/PSNR evaluation.
+
+
+4. RUN THE ARCHIVED MNIST WORKFLOW
+
+The original implementation remains under src/:
+
+python src/Train_Image_Branch.py --config src/default.yaml
+python src/Train_Conditional_Partition.py --config src/default.yaml
+python src/DualSample_ajustable_evalgen_boost.py --config src/default.yaml
+
+
+5. CHECK THE GPU INSIDE THE CONTAINER
+
+python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print([torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())])"
