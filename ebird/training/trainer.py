@@ -222,7 +222,9 @@ def _run_epoch(
             with torch.cuda.amp.autocast(enabled=mixed_precision):
                 prediction = _forward(model, batch, noisy, timesteps, stage)
                 loss = torch.nn.functional.mse_loss(prediction, noise)
-                scaled_loss = loss / accumulation
+                group_start = (step // accumulation) * accumulation
+                group_size = min(accumulation, effective_length - group_start)
+                scaled_loss = loss / group_size
             if train_mode:
                 scaler.scale(scaled_loss).backward()
 
@@ -305,11 +307,15 @@ def train(
                 json.dumps(config, indent=2) + "\n", encoding="utf-8"
             )
             logging.info(
-                "Stage=%s | device=%s | processes=%d | samples=%d | trainable_parameters=%d",
+                "Stage=%s | device=%s | processes=%d | samples=%d | "
+                "effective_batch_size=%d | trainable_parameters=%d",
                 stage,
                 context.device,
                 context.world_size,
                 len(train_dataset),
+                int(training.get("batch_size_per_gpu", 1))
+                * context.world_size
+                * int(training.get("gradient_accumulation_steps", 1)),
                 sum(parameter.numel() for parameter in trainable),
             )
 
@@ -352,12 +358,13 @@ def train(
                     writer.add_scalar("loss/train", train_loss, epoch)
                     writer.add_scalar("loss/val", val_loss, epoch)
                 checkpoint_dir.mkdir(parents=True, exist_ok=True)
+                is_best = val_loss <= best_loss
                 best_loss = min(best_loss, val_loss)
                 state = _checkpoint_state(
                     stage, model, optimizer, scaler, epoch, best_loss, config
                 )
                 torch.save(state, last_checkpoint)
-                if val_loss <= best_loss:
+                if is_best:
                     torch.save(state, checkpoint_dir / "best.pt")
             if context.enabled:
                 dist.barrier()

@@ -1,7 +1,7 @@
 # Ebird Diffusion
 
 Conditional DDPM reconstruction of grayscale face images from accumulated event
-representations. The current implementation supports RGBE-Gaze at 256x256,
+representations. The current implementation supports RGBE-Gaze at 512x512,
 single-GPU device selection, AMP, gradient checkpointing, and multi-GPU DDP.
 
 This repository derives from Fabian Valderrama's `Ebird_MNIST` work. The
@@ -41,7 +41,8 @@ The script mounts:
 | `/home/ignacio.bugueno/cachefs/event_reconstruction/output/ebird` | `/app/Rislab_Event_influence_volume` | Checkpoints, logs, samples, and reports |
 
 Edit only the host-side paths in `run_docker.sh` when moving to another server.
-The container exposes all GPUs; each command chooses its GPU with `--device`.
+The container exposes all GPUs. Use `--device` for one GPU or
+`CUDA_VISIBLE_DEVICES` with `torchrun` for DDP.
 
 ## RGBE-Gaze data
 
@@ -58,9 +59,10 @@ filename. Unpaired files are ignored by default and reported by the manifest
 builder. Input PNG files may remain at 512x512; the loader resizes them in
 memory to the configured model resolution.
 
-For the exact `user_1` split, 256x256 training, sampling, and evaluation
-commands, follow [docs/server_workflow.md](docs/server_workflow.md). Design and
-metric details are documented in [docs/rgbe_gaze.md](docs/rgbe_gaze.md).
+For the exact `user_1` split, 512x512 training on GPUs 1, 2, and 4, sampling,
+and evaluation commands, follow
+[docs/server_workflow.md](docs/server_workflow.md). Design and metric details
+are documented in [docs/rgbe_gaze.md](docs/rgbe_gaze.md).
 
 ## Smoke test
 

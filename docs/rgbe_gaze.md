@@ -1,4 +1,4 @@
-# RGBE-Gaze training at 256x256
+# RGBE-Gaze training at 512x512
 
 The RGBE-Gaze implementation is independent from the archived MNIST scripts in
 `src/`. Its three stages are:
@@ -39,13 +39,15 @@ evidence of generalization to new people. Once all users are available, omit
 
 ## Training and reconstruction
 
-Use `configs/rgbe_gaze/256_user1.yaml` for the current single-user run and
+Use `configs/rgbe_gaze/512_user1.yaml` for the current single-user run and
 follow [server_workflow.md](server_workflow.md) for exact commands. The image
 branch must finish before the conditional branch.
 
-The 256x256 configuration uses batch size 1 per GPU, AMP, gradient accumulation,
-gradient checkpointing, and attention only at 32x32 and 16x16. DDP replicates
-the model on every GPU; GPU memory is not pooled for one sample.
+The 512x512 configuration follows the previous eBIRD experiment with learning
+rate `0.0001` and 40 epochs per stage. It uses batch size 1 per GPU across three
+GPUs and 27 gradient-accumulation steps, for an effective global batch of 81.
+It also enables AMP, gradient checkpointing, and low-resolution attention. DDP
+replicates the model on every GPU; GPU memory is not pooled for one sample.
 
 ## Reconstruction metrics
 

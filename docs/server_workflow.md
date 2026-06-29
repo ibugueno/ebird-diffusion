@@ -1,8 +1,7 @@
 # RGBE-Gaze server workflow
 
-This guide trains the 256x256 pipeline using only `user_1` on GPU 1. Source
-images remain at 512x512; the data loader resizes them in memory and never
-changes the PNG files.
+This guide trains the 512x512 pipeline using only `user_1` on GPUs 1, 2, and 4.
+The loader uses the source resolution directly and never changes the PNG files.
 
 ## 1. Update and start the container
 
@@ -60,29 +59,38 @@ python scripts/validate_rgbe_dataset.py \
   --manifest /app/Rislab_Event_influence_volume/rgbe-gaze/manifests-user-1-split/all.csv
 ```
 
-## 5. Train at 256x256 on GPU 1
+## 5. Train at 512x512 on GPUs 1, 2, and 4
+
+The paper used learning rate `0.0001`, batch size `80`, and `40` epochs. With
+three DDP processes, this configuration uses one image per GPU and accumulates
+27 micro-batches, producing an effective global batch of 81:
+
+```text
+1 image/GPU x 3 GPUs x 27 accumulation steps = 81 images/update
+```
 
 Train the image branch first:
 
 ```bash
-python scripts/train_rgbe.py \
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
   --stage image \
-  --device 1 \
-  --config configs/rgbe_gaze/256_user1.yaml
+  --config configs/rgbe_gaze/512_user1.yaml
 ```
 
 Then train the event-conditioned branch. It loads the best image checkpoint
 automatically:
 
 ```bash
-python scripts/train_rgbe.py \
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
   --stage conditional \
-  --device 1 \
-  --config configs/rgbe_gaze/256_user1.yaml
+  --config configs/rgbe_gaze/512_user1.yaml
 ```
 
 Both commands resume from `last.pt` by default. Add `--no-resume` only when a
-fresh run is intended.
+fresh run is intended. Do not pass `--device` to `torchrun`; physical GPUs
+1, 2, and 4 become local CUDA devices 0, 1, and 2 inside the DDP processes.
 
 ## 6. Reconstruct the test split
 
@@ -91,7 +99,7 @@ The fixed seed makes this preliminary evaluation reproducible:
 ```bash
 python scripts/sample_rgbe.py \
   --device 1 \
-  --config configs/rgbe_gaze/256_user1.yaml \
+  --config configs/rgbe_gaze/512_user1.yaml \
   --limit 100 \
   --seed 44
 ```
@@ -102,7 +110,7 @@ Use `--limit -1` to reconstruct every sample in `test.csv`.
 
 ```bash
 python scripts/evaluate_rgbe_metrics.py \
-  --samples-dir /app/Rislab_Event_influence_volume/rgbe-gaze/samples/256-user1
+  --samples-dir /app/Rislab_Event_influence_volume/rgbe-gaze/samples/512-user1
 ```
 
 The command writes per-image values to `metrics/per_image_metrics.csv` and
@@ -110,7 +118,13 @@ aggregate statistics to `metrics/summary.json`. MSE is better when lower; SSIM
 and PSNR are better when higher. For a paper, report the test sample count and
 mean plus standard deviation for every metric.
 
-## 8. Multi-GPU training after the dataset is complete
+## 8. Preliminary 256x256 memory test
+
+The existing `256_user1.yaml` configuration remains available for comparison.
+Its checkpoints and samples use separate output directories, so they cannot
+overwrite the 512x512 experiment.
+
+## 9. Multi-user training after the dataset is complete
 
 Once enough users are available, prefer identity-disjoint train, validation,
 and test splits. The general configuration can run on GPUs 1, 2, and 4:
@@ -122,5 +136,5 @@ torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
   --config configs/rgbe_gaze/256.yaml
 ```
 
-Repeat with `--stage conditional`. Do not combine `--device` with `torchrun`;
-DDP assigns one visible GPU to each process.
+Repeat with `--stage conditional`. Revisit the global batch configuration when
+changing the number of GPUs or the per-GPU batch size.
