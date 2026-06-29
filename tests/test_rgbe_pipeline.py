@@ -35,6 +35,22 @@ def _create_dataset(root: Path, users: int = 4, samples: int = 2) -> None:
 
 
 class RGBEGazePipelineTest(unittest.TestCase):
+    def test_user_filter(self):
+        with tempfile.TemporaryDirectory(prefix="rgbe-filter-") as temporary:
+            root = Path(temporary)
+            dataset_root = root / "rgbe-gaze"
+            manifest_dir = root / "manifests"
+            _create_dataset(dataset_root, users=3, samples=2)
+            counts = build_manifests(
+                dataset_root,
+                manifest_dir,
+                include_users=["1"],
+            )
+            self.assertEqual(counts, {"train": 2, "val": 0, "test": 0})
+            with (manifest_dir / "train.csv").open(newline="") as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual({row["user"] for row in rows}, {"user_1"})
+
     def test_manifest_dataset_and_models(self):
         with tempfile.TemporaryDirectory(prefix="rgbe-test-") as temporary:
             root = Path(temporary)

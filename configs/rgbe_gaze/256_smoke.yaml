@@ -1,6 +1,6 @@
 data:
   dataset_root: /app/Rislab_Event_influence_volume/dataset/rgbe-gaze
-  manifest_dir: /app/Rislab_Event_influence_volume/rgbe-gaze/manifests
+  manifest_dir: /app/Rislab_Event_influence_volume/rgbe-gaze/manifests-user-1
 
 model:
   image_size: 256
@@ -34,7 +34,7 @@ training:
   seed: 44
 
 sampling:
-  split: test
+  split: train
   batch_size: 1
   limit: 1
   output_dir: /app/Rislab_Event_influence_volume/rgbe-gaze/samples/256-smoke

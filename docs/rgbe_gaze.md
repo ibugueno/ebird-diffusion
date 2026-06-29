@@ -28,6 +28,18 @@ python scripts/build_rgbe_manifest.py \
   --test-ratio 0.1
 ```
 
+Para una prueba preliminar usando exclusivamente `user_1`:
+
+```bash
+python scripts/build_rgbe_manifest.py \
+  --dataset-root /app/Rislab_Event_influence_volume/dataset/rgbe-gaze \
+  --output-dir /app/Rislab_Event_influence_volume/rgbe-gaze/manifests-user-1 \
+  --users user_1
+```
+
+En ese caso todas las muestras quedan en `train.csv`; no se crean muestras de
+validación o test porque la separación se realiza por identidad.
+
 Validación opcional de todos los PNG:
 
 ```bash
@@ -41,8 +53,9 @@ python scripts/validate_rgbe_dataset.py \
 Prueba primero dos batches reales en una sola GPU:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python scripts/train_rgbe.py \
+python scripts/train_rgbe.py \
   --stage image \
+  --device 1 \
   --config configs/rgbe_gaze/256_smoke.yaml
 ```
 
@@ -52,7 +65,7 @@ utiliza `256.yaml` para el entrenamiento completo.
 Cuando el primer epoch corto funcione, usa las tres GPU con DDP:
 
 ```bash
-torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+CUDA_VISIBLE_DEVICES=1,2,4 torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
   --stage image \
   --config configs/rgbe_gaze/256.yaml
 ```
@@ -62,7 +75,7 @@ torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
 Esta etapa exige el checkpoint `best.pt` de la rama anterior:
 
 ```bash
-torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+CUDA_VISIBLE_DEVICES=1,2,4 torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
   --stage conditional \
   --config configs/rgbe_gaze/256.yaml
 ```
@@ -70,8 +83,9 @@ torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
 ## 4. Generar reconstrucciones
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python scripts/sample_rgbe.py \
+python scripts/sample_rgbe.py \
   --config configs/rgbe_gaze/256.yaml \
+  --device 1 \
   --limit 16
 ```
 

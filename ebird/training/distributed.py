@@ -23,12 +23,25 @@ class DistributedContext:
         return self.rank == 0
 
 
-def initialize() -> DistributedContext:
+def initialize(device_index: int | None = None) -> DistributedContext:
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     rank = int(os.environ.get("RANK", "0"))
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
     if torch.cuda.is_available():
-        device = torch.device("cuda", local_rank)
+        if world_size > 1 and device_index is not None:
+            raise ValueError(
+                "--device sólo es válido para un proceso. En DDP selecciona las "
+                "GPU con CUDA_VISIBLE_DEVICES antes de torchrun."
+            )
+        selected_index = local_rank if world_size > 1 else (
+            int(device_index) if device_index is not None else 0
+        )
+        if selected_index < 0 or selected_index >= torch.cuda.device_count():
+            raise ValueError(
+                f"GPU cuda:{selected_index} no disponible; "
+                f"torch detecta {torch.cuda.device_count()} GPU"
+            )
+        device = torch.device("cuda", selected_index)
         torch.cuda.set_device(device)
         backend = "nccl"
     else:

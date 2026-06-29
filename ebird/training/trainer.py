@@ -234,10 +234,16 @@ def _run_epoch(
     return mean_across_processes(local_loss, context)
 
 
-def train(stage: Stage, config: dict, *, resume: bool = True) -> None:
+def train(
+    stage: Stage,
+    config: dict,
+    *,
+    resume: bool = True,
+    device_index: int | None = None,
+) -> None:
     if stage not in ("image", "conditional"):
         raise ValueError(f"Etapa inválida: {stage}")
-    context = initialize()
+    context = initialize(device_index=device_index)
     training = config["training"]
     output_dir = Path(training["output_dir"]) / stage
     _setup_logging(output_dir, context)

@@ -58,6 +58,12 @@ def _numeric_user_key(user: str) -> tuple[int, str]:
     return (int(match.group(1)) if match else 10**9, user)
 
 
+def _normalize_user(user: str) -> str:
+    value = str(user).strip().lower()
+    match = re.fullmatch(r"(?:user_?)?(\d+)", value)
+    return f"user_{int(match.group(1))}" if match else value
+
+
 def split_users(
     users: Iterable[str],
     *,
@@ -113,6 +119,7 @@ def build_manifests(
     val_ratio: float = 0.1,
     test_ratio: float = 0.1,
     seed: int = 44,
+    include_users: Iterable[str] | None = None,
 ) -> dict[str, int]:
     dataset_root = Path(dataset_root).resolve()
     output_dir = Path(output_dir).resolve()
@@ -142,6 +149,18 @@ def build_manifests(
                 "split": "",
             }
         )
+
+    if include_users:
+        selected_users = {_normalize_user(user) for user in include_users}
+        rows = [row for row in rows if row["user"] in selected_users]
+        found_users = {row["user"] for row in rows}
+        missing_users = sorted(selected_users - found_users, key=_numeric_user_key)
+        if missing_users:
+            raise ValueError(
+                "No se encontraron los usuarios solicitados: " + ", ".join(missing_users)
+            )
+        if not rows:
+            raise ValueError("El filtro de usuarios no produjo muestras")
 
     assignments = split_users(
         (row["user"] for row in rows),

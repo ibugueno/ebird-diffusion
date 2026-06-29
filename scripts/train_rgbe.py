@@ -17,10 +17,20 @@ def main() -> None:
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--stage", required=True, choices=("image", "conditional"))
     parser.add_argument("--no-resume", action="store_true")
+    parser.add_argument(
+        "--device",
+        type=int,
+        help="Índice CUDA para ejecución en una sola GPU, por ejemplo --device 1",
+    )
     args = parser.parse_args()
     config = load_config(args.config)
     require_sections(config, "data", "model", "diffusion", "training")
-    train(args.stage, config, resume=not args.no_resume)
+    train(
+        args.stage,
+        config,
+        resume=not args.no_resume,
+        device_index=args.device,
+    )
 
 
 if __name__ == "__main__":

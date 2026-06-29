@@ -36,6 +36,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generación condicionada RGBE-Gaze")
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--limit", type=int)
+    parser.add_argument(
+        "--device",
+        type=int,
+        help="Índice CUDA que se utilizará; por defecto usa cuda:0",
+    )
     args = parser.parse_args()
     config = load_config(args.config)
     require_sections(config, "data", "model", "diffusion", "training", "sampling")
@@ -48,7 +53,19 @@ def main() -> None:
         include_condition=True,
     )
     loader = DataLoader(dataset, batch_size=int(sampling.get("batch_size", 1)))
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device_index = args.device if args.device is not None else 0
+        if device_index < 0 or device_index >= torch.cuda.device_count():
+            raise ValueError(
+                f"GPU cuda:{device_index} no disponible; "
+                f"torch detecta {torch.cuda.device_count()} GPU"
+            )
+        device = torch.device("cuda", device_index)
+        torch.cuda.set_device(device)
+    elif args.device is not None:
+        raise RuntimeError("Se indicó --device, pero CUDA no está disponible")
+    else:
+        device = torch.device("cpu")
     model = _load_model(config, device)
     scheduler = LinearNoiseScheduler(**config["diffusion"])
     output_root = Path(sampling["output_dir"])

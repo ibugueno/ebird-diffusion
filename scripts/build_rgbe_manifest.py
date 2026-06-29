@@ -19,6 +19,11 @@ def main() -> None:
     parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--test-ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=44)
+    parser.add_argument(
+        "--users",
+        nargs="+",
+        help="Usuarios a incluir, por ejemplo: --users user_1 user_2",
+    )
     args = parser.parse_args()
     counts = build_manifests(
         args.dataset_root,
@@ -26,6 +31,7 @@ def main() -> None:
         val_ratio=args.val_ratio,
         test_ratio=args.test_ratio,
         seed=args.seed,
+        include_users=args.users,
     )
     print(json.dumps({"status": "ok", "counts": counts}, indent=2))
 
