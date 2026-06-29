@@ -24,6 +24,11 @@ def main() -> None:
         nargs="+",
         help="Usuarios a incluir, por ejemplo: --users user_1 user_2",
     )
+    parser.add_argument(
+        "--strict-pairs",
+        action="store_true",
+        help="Falla si encuentra un frame o evento sin su pareja",
+    )
     args = parser.parse_args()
     counts = build_manifests(
         args.dataset_root,
@@ -32,6 +37,7 @@ def main() -> None:
         test_ratio=args.test_ratio,
         seed=args.seed,
         include_users=args.users,
+        strict_pairs=args.strict_pairs,
     )
     print(json.dumps({"status": "ok", "counts": counts}, indent=2))
 

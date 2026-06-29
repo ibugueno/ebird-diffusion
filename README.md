@@ -127,6 +127,9 @@ La implementación original para MNIST permanece en `src/`. Para entrenar
 RGBE-Gaze a 256×256 con manifests por usuario, AMP y DDP, consulta
 [`docs/rgbe_gaze.md`](docs/rgbe_gaze.md).
 
+Para la secuencia exacta de comandos dentro del servidor, consulta
+[`docs/server_workflow.md`](docs/server_workflow.md).
+
 Entrenar la U-Net base:
 
 ```bash

@@ -120,15 +120,39 @@ def build_manifests(
     test_ratio: float = 0.1,
     seed: int = 44,
     include_users: Iterable[str] | None = None,
+    strict_pairs: bool = False,
 ) -> dict[str, int]:
     dataset_root = Path(dataset_root).resolve()
     output_dir = Path(output_dir).resolve()
     targets = _image_map(dataset_root / target_dir)
     events = _image_map(dataset_root / event_dir)
 
+    selected_users = (
+        {_normalize_user(user) for user in include_users} if include_users else None
+    )
+    if selected_users:
+        available_users = {
+            _parse_identity(relative)[0] for relative in set(targets) | set(events)
+        }
+        missing_users = sorted(selected_users - available_users, key=_numeric_user_key)
+        if missing_users:
+            raise ValueError(
+                "No se encontraron los usuarios solicitados: " + ", ".join(missing_users)
+            )
+        targets = {
+            relative: path
+            for relative, path in targets.items()
+            if _parse_identity(relative)[0] in selected_users
+        }
+        events = {
+            relative: path
+            for relative, path in events.items()
+            if _parse_identity(relative)[0] in selected_users
+        }
+
     missing_events = sorted(set(targets) - set(events))
     missing_targets = sorted(set(events) - set(targets))
-    if missing_events or missing_targets:
+    if strict_pairs and (missing_events or missing_targets):
         examples = [str(path) for path in (missing_events + missing_targets)[:10]]
         raise ValueError(
             "El dataset no está completamente emparejado. "
@@ -136,8 +160,12 @@ def build_manifests(
             f"ejemplos: {examples}"
         )
 
+    paired_paths = sorted(set(targets) & set(events))
+    if not paired_paths:
+        raise ValueError("No se encontraron pares frame/evento válidos")
+
     rows: list[dict[str, str]] = []
-    for relative in sorted(targets):
+    for relative in paired_paths:
         user, experiment = _parse_identity(relative)
         rows.append(
             {
@@ -149,18 +177,6 @@ def build_manifests(
                 "split": "",
             }
         )
-
-    if include_users:
-        selected_users = {_normalize_user(user) for user in include_users}
-        rows = [row for row in rows if row["user"] in selected_users]
-        found_users = {row["user"] for row in rows}
-        missing_users = sorted(selected_users - found_users, key=_numeric_user_key)
-        if missing_users:
-            raise ValueError(
-                "No se encontraron los usuarios solicitados: " + ", ".join(missing_users)
-            )
-        if not rows:
-            raise ValueError("El filtro de usuarios no produjo muestras")
 
     assignments = split_users(
         (row["user"] for row in rows),
@@ -178,7 +194,12 @@ def build_manifests(
             output_dir / f"{split}.csv",
             [row for row in rows if row["split"] == split],
         )
-    return {split: counts.get(split, 0) for split in ("train", "val", "test")}
+    return {
+        "paired": len(rows),
+        "skipped_without_event": len(missing_events),
+        "skipped_without_target": len(missing_targets),
+        **{split: counts.get(split, 0) for split in ("train", "val", "test")},
+    }
 
 
 def validate_manifest(

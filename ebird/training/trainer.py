@@ -51,8 +51,15 @@ def _setup_logging(output_dir: Path, context: DistributedContext) -> None:
 
 def _dataset(config: dict, split: str, stage: Stage) -> RGBEGazeDataset:
     data = config["data"]
+    manifest_path = Path(data["manifest_dir"]) / f"{split}.csv"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            f"No existe el manifest requerido: {manifest_path}. "
+            "Ejecuta primero scripts/build_rgbe_manifest.py con el mismo "
+            "directorio configurado en data.manifest_dir."
+        )
     return RGBEGazeDataset(
-        Path(data["manifest_dir"]) / f"{split}.csv",
+        manifest_path,
         data["dataset_root"],
         resolution=config["model"]["image_size"],
         include_condition=stage == "conditional",

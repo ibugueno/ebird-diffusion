@@ -41,15 +41,26 @@ class RGBEGazePipelineTest(unittest.TestCase):
             dataset_root = root / "rgbe-gaze"
             manifest_dir = root / "manifests"
             _create_dataset(dataset_root, users=3, samples=2)
+            unmatched = next(
+                (dataset_root / "event_accumulate_frames" / "user_2").rglob("*.png")
+            )
+            unmatched.unlink()
             counts = build_manifests(
                 dataset_root,
                 manifest_dir,
                 include_users=["1"],
             )
-            self.assertEqual(counts, {"train": 2, "val": 0, "test": 0})
+            self.assertEqual(counts["paired"], 2)
+            self.assertEqual(counts["train"], 2)
+            self.assertEqual(counts["skipped_without_event"], 0)
+            self.assertEqual(counts["skipped_without_target"], 0)
             with (manifest_dir / "train.csv").open(newline="") as stream:
                 rows = list(csv.DictReader(stream))
             self.assertEqual({row["user"] for row in rows}, {"user_1"})
+
+            all_counts = build_manifests(dataset_root, root / "all-manifests")
+            self.assertEqual(all_counts["paired"], 5)
+            self.assertEqual(all_counts["skipped_without_event"], 1)
 
     def test_manifest_dataset_and_models(self):
         with tempfile.TemporaryDirectory(prefix="rgbe-test-") as temporary:
@@ -64,7 +75,8 @@ class RGBEGazePipelineTest(unittest.TestCase):
                 test_ratio=0.25,
                 seed=7,
             )
-            self.assertEqual(sum(counts.values()), 8)
+            self.assertEqual(counts["paired"], 8)
+            self.assertEqual(counts["train"] + counts["val"] + counts["test"], 8)
             self.assertGreater(counts["train"], 0)
             self.assertGreater(counts["val"], 0)
             self.assertGreater(counts["test"], 0)
