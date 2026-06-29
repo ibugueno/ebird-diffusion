@@ -1,17 +1,44 @@
-1. Construir la imagen Docker
-docker build -t training_ec .
+REQUISITOS DEL SERVIDOR
 
-2. Ejecutar con volumen conectado a la carpeta Rislab_Event_influence_volume del contenedor.
-docker run --rm --gpus "device=0" --name container_training_ec -v Rislab_Event_influence_volume:/app/Rislab_Event_influence_volume training_ec conda run -n EVDiff python /app/src/run.py
+- Docker Engine
+- GPU NVIDIA y driver compatible con CUDA 12.1
+- NVIDIA Container Toolkit
+- Dataset organizado bajo Rislab_Event_influence_volume/dataset
 
 
-/// Para Debugear ///
+1. CONSTRUIR LA IMAGEN
 
-Ejecutar para debugear a con conexion a una carpeta local y Volumen conectado a la carpeta Rislab_Event_influence_volume del contenedo
-docker run -it --gpus "device=0" --name container_training_ec -v C:/Users/Pollo/Documents/Docker_fbn/RISLAB_Event_Influence/Train/src:/app/src -v Rislab_Event_influence_volume:/app/Rislab_Event_influence_volume training_ec conda run -n EVDiff python /app/src/run.py
+docker build -t ebird-mnist:cu121 .
 
-#python src/Train.py --config 'src/default.yaml'
-#python src/sample_ddpm.py --config 'src/default.yaml'
 
-#python src/Conditional_Train.py --config 'src/default.yaml'
-#python src/DualSample.py --config 'src/default.yaml'
+2. EJECUTAR TODO EL FLUJO
+
+El directorio indicado en /ruta/datos-y-resultados debe contener el dataset y
+también recibirá checkpoints, logs y muestras generadas.
+
+docker run --rm \
+  --gpus "device=0" \
+  --ipc=host \
+  --name ebird-training \
+  -v /ruta/datos-y-resultados:/app/Rislab_Event_influence_volume \
+  ebird-mnist:cu121
+
+
+3. ABRIR UNA TERMINAL DE DEPURACIÓN
+
+docker run --rm -it \
+  --gpus "device=0" \
+  --ipc=host \
+  -v /ruta/datos-y-resultados:/app/Rislab_Event_influence_volume \
+  ebird-mnist:cu121 bash
+
+Dentro del contenedor:
+
+conda run --no-capture-output -n EVDiff python src/Train_Image_Branch.py --config src/default.yaml
+conda run --no-capture-output -n EVDiff python src/Train_Conditional_Partition.py --config src/default.yaml
+conda run --no-capture-output -n EVDiff python src/DualSample_ajustable_evalgen_boost.py --config src/default.yaml
+
+
+4. VERIFICAR LA GPU DENTRO DEL CONTENEDOR
+
+conda run -n EVDiff python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"

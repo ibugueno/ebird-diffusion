@@ -173,13 +173,14 @@ def run_subset(cfg: dict, subset_ratio: float, resume: bool, device: torch.devic
     # Opción: cargar pesos base (e.g., unet pre‑entrenado)
     base_ckpt = Path(train_cfg["task_name"],"DDPM/checkpoints/ddpm_ckpt.pth")
     print("Base CKPT DDPM",base_ckpt)
-    ckpt = torch.load(base_ckpt, map_location='cpu')
-    if base_ckpt.is_file():
-        try:
-            model.unet.load_state_dict(ckpt['model_state_dict'])
-            logging.info("Pesos base de Unet cargados desde %s", base_ckpt)
-        except Exception as e:
-            logging.warning("No se pudieron cargar pesos base: %s", e)
+    if not base_ckpt.is_file():
+        raise FileNotFoundError(
+            f"No se encontró el checkpoint base requerido: {base_ckpt}"
+        )
+
+    ckpt = torch.load(base_ckpt, map_location="cpu")
+    model.unet.load_state_dict(ckpt["model_state_dict"])
+    logging.info("Pesos base de Unet cargados desde %s", base_ckpt)
 
     scheduler_noise = LinearNoiseScheduler(
         num_timesteps=diffusion_cfg["num_timesteps"],
@@ -296,4 +297,3 @@ if __name__ == "__main__":
     main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/7'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/7'], class_name = "7")
     main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/8'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/8'], class_name = "8")
     main(path_images = ['Rislab_Event_influence_volume/dataset/MNIST/Train/9'], path_events = ['Rislab_Event_influence_volume/dataset/N-MNIST/33ms/Train/9'], class_name = "9")
-

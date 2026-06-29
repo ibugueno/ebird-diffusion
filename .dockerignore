@@ -1,0 +1,8 @@
+.git
+__pycache__/
+**/__pycache__/
+*.py[cod]
+Rislab_Event_influence_volume/
+*.pth
+*.pt
+*.ckpt

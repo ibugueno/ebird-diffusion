@@ -184,6 +184,11 @@ def infer(args, subset_ratio_=0.05, batch_size=768):
                     sample_batch(Model_original, model, c_batch, scheduler,
                                  train_config, model_config, diffusion_config,
                                  subset_ratio_, [os.path.basename(p) for p in batch_paths], class_name)
+                except RuntimeError as exc:
+                    print(f"Error en batch {i}-{i + batch_size}: {exc}")
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    gc.collect()
    
 
 

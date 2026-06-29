@@ -1,18 +1,24 @@
-# Usa una imagen base con Python y Conda
 FROM continuumio/miniconda3
 
-# Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Copia los archivos del proyecto al contenedor
+# Dependencias del sistema requeridas por OpenCV.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libgl1 libglib2.0-0 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY environment.yml /app/environment.yml
+
+RUN conda env create -f /app/environment.yml && \
+    conda clean -afy
+
 COPY . /app
 
-# Instala las dependencias desde environment.yml
-RUN conda env create -f environment.yml
+RUN mkdir -p /app/Rislab_Event_influence_volume
 
-# Activa el entorno y configura SHELL para que los siguientes comandos lo usen
-SHELL ["conda", "run", "-n", "EVDiff", "/bin/bash", "-c"]
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-RUN ["mkdir", "-p", "/app/Rislab_Event_influence_volume"]
-
-CMD ["python", "run.py"]  # Ejecutar el script principal
+# Ejecuta las tres etapas definidas en src/run.py dentro del entorno Conda.
+CMD ["conda", "run", "--no-capture-output", "-n", "EVDiff", "python", "/app/src/run.py"]
