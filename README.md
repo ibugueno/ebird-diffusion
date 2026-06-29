@@ -123,6 +123,10 @@ python tests/smoke_test.py --device cpu
 
 Todos los comandos siguientes se ejecutan dentro del contenedor desde `/app`.
 
+La implementación original para MNIST permanece en `src/`. Para entrenar
+RGBE-Gaze a 256×256 con manifests por usuario, AMP y DDP, consulta
+[`docs/rgbe_gaze.md`](docs/rgbe_gaze.md).
+
 Entrenar la U-Net base:
 
 ```bash
