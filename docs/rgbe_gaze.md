@@ -43,6 +43,11 @@ Use `configs/rgbe_gaze/512_user1.yaml` for the current single-user run and
 follow [server_workflow.md](server_workflow.md) for exact commands. The image
 branch must finish before the conditional branch.
 
+Use `scripts/sample_image_branch.py` after the image stage to inspect
+unconditional samples from its best checkpoint. The script saves individual
+images, a generated grid, and an unpaired real-image reference grid. It does
+not use event inputs because conditioning is learned in the second stage.
+
 The 512x512 configuration follows the previous eBIRD experiment with learning
 rate `0.0001` and 40 epochs per stage. It uses batch size 1 per GPU across three
 GPUs and 27 gradient-accumulation steps, for an effective global batch of 81.

@@ -92,7 +92,28 @@ Both commands resume from `last.pt` by default. Add `--no-resume` only when a
 fresh run is intended. Do not pass `--device` to `torchrun`; physical GPUs
 1, 2, and 4 become local CUDA devices 0, 1, and 2 inside the DDP processes.
 
-## 6. Reconstruct the test split
+## 6. Visualize the image branch
+
+After the image stage finishes, generate four unconditional face examples from
+its best checkpoint:
+
+```bash
+python scripts/sample_image_branch.py \
+  --device 1 \
+  --config configs/rgbe_gaze/512_user1.yaml \
+  --num-samples 4 \
+  --batch-size 1 \
+  --seed 44
+```
+
+The command writes individual PNG files, `grid.png`, `reference_grid.png`, and
+`metadata.json` under `runs/512-user1/image/samples/seed-44/`. The reference
+grid contains real training images for qualitative context, but its entries are
+not paired with the generated images. These outputs represent the learned face
+distribution, not event-conditioned reconstructions. Sampling uses one GPU and
+does not require DDP.
+
+## 7. Reconstruct the test split
 
 The fixed seed makes this preliminary evaluation reproducible:
 
@@ -106,7 +127,7 @@ python scripts/sample_rgbe.py \
 
 Use `--limit -1` to reconstruct every sample in `test.csv`.
 
-## 7. Compute MSE, SSIM, and PSNR
+## 8. Compute MSE, SSIM, and PSNR
 
 ```bash
 python scripts/evaluate_rgbe_metrics.py \
@@ -118,13 +139,13 @@ aggregate statistics to `metrics/summary.json`. MSE is better when lower; SSIM
 and PSNR are better when higher. For a paper, report the test sample count and
 mean plus standard deviation for every metric.
 
-## 8. Preliminary 256x256 memory test
+## 9. Preliminary 256x256 memory test
 
 The existing `256_user1.yaml` configuration remains available for comparison.
 Its checkpoints and samples use separate output directories, so they cannot
 overwrite the 512x512 experiment.
 
-## 9. Multi-user training after the dataset is complete
+## 10. Multi-user training after the dataset is complete
 
 Once enough users are available, prefer identity-disjoint train, validation,
 and test splits. The general configuration can run on GPUs 1, 2, and 4:

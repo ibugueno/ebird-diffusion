@@ -16,6 +16,10 @@ under `src/`.
 3. Freeze the image branch and train event conditioning.
 4. Reconstruct held-out targets and evaluate MSE, SSIM, and PSNR.
 
+The image branch can also be inspected independently with
+`scripts/sample_image_branch.py`, which generates unconditional examples and a
+PNG grid from its best checkpoint.
+
 ## Server requirements
 
 - Docker Engine.
