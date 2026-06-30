@@ -171,8 +171,15 @@ current `user_1` checkpoints.
 
 # V2 architecture (experimental)
 
-V2 is retained for a future controlled comparison. It does not replace the
-successful baseline.
+V2 is retained for a controlled comparison. It does not replace the successful
+baseline. Three independent output roots prevent accidental overwrites:
+
+```text
+Baseline:       runs/512-user1
+V2, 40 epochs:  runs/512-user1-v2-40
+V2, 80 epochs:  runs/512-user1-v2
+V2 smoke test:  runs/512-user1-v2-smoke
+```
 
 ```text
 Resolution:                  512x512
@@ -180,11 +187,13 @@ U-Net levels:                [32, 64, 128, 256, 512, 512]
 Deepest resolution:          16x16
 Image-branch parameters:     approximately 52.5 million
 Learning rate:               0.0001
-Epochs per stage:            80
+Initial comparison:          40 epochs per stage
+Optional longer run:         80 epochs per stage
 Batch per GPU:               3
 Gradient accumulation:       9
 Effective batch on 3 GPUs:   3 x 3 x 9 = 81
-Output directory:            runs/512-user1-v2
+40-epoch output directory:   runs/512-user1-v2-40
+80-epoch output directory:   runs/512-user1-v2
 ```
 
 ## 10. Run the V2 memory smoke test
@@ -211,7 +220,43 @@ torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
 
 Monitor both commands with `nvidia-smi` before starting a full V2 run.
 
-## 11. Train V2
+## 11. Train the isolated 40-epoch V2 experiment
+
+Train the image branch:
+
+```bash
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+  --stage image \
+  --config configs/rgbe_gaze/512_user1_v2_40.yaml
+```
+
+After it finishes, train the conditional branch:
+
+```bash
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+  --stage conditional \
+  --config configs/rgbe_gaze/512_user1_v2_40.yaml
+```
+
+Generate and evaluate its held-out reconstructions:
+
+```bash
+python scripts/sample_rgbe.py \
+  --device 1 \
+  --config configs/rgbe_gaze/512_user1_v2_40.yaml \
+  --limit 100 \
+  --seed 44
+
+python scripts/evaluate_rgbe_metrics.py \
+  --samples-dir /app/Rislab_Event_influence_volume/rgbe-gaze/samples/512-user1-v2-40
+```
+
+## 12. Optional independent 80-epoch V2 experiment
+
+Only run this after evaluating the isolated 40-epoch experiment. It uses a
+different output directory and starts an independent comparison:
 
 ```bash
 CUDA_VISIBLE_DEVICES=1,2,4 \

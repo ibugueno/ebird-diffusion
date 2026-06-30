@@ -50,9 +50,9 @@ not use event inputs because conditioning is learned in the second stage.
 
 The successful baseline uses five U-Net levels, 40 epochs per stage, batch size
 1 per GPU, and 27 gradient-accumulation steps. The optional V2 configuration is
-documented separately at the end of the server workflow. It adds a sixth level
-and a 16x16 bottleneck, but it should be treated as an experimental comparison,
-not a replacement for the baseline.
+documented separately at the end of the server workflow. Its isolated
+`512_user1_v2_40.yaml` experiment also runs for 40 epochs, allowing a controlled
+architecture comparison before considering the independent 80-epoch V2 run.
 
 ## Reconstruction metrics
 
