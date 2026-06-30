@@ -10,11 +10,14 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image
+from torch.utils.data import DataLoader
 
 from ebird.data import RGBEGazeDataset, build_manifests, validate_manifest
 from ebird.diffusion import LinearNoiseScheduler
 from ebird.models.conditional import conditional_from_config
 from ebird.models.unet import unet_from_config
+from ebird.training.distributed import DistributedContext
+from ebird.training.trainer import _run_epoch
 from scripts.evaluate_rgbe_metrics import compute_metrics
 
 
@@ -46,6 +49,41 @@ def _create_dataset(
 
 
 class RGBEGazePipelineTest(unittest.TestCase):
+    def test_validation_noise_is_deterministic(self):
+        class ZeroNoiseModel(torch.nn.Module):
+            def forward(self, noisy, timesteps):
+                return torch.zeros_like(noisy)
+
+        loader = DataLoader(
+            [{"target": torch.zeros(1, 8, 8)} for _ in range(4)],
+            batch_size=2,
+        )
+        context = DistributedContext(
+            rank=1,
+            local_rank=0,
+            world_size=1,
+            device=torch.device("cpu"),
+        )
+        arguments = {
+            "model": ZeroNoiseModel(),
+            "loader": loader,
+            "optimizer": None,
+            "scaler": torch.cuda.amp.GradScaler(enabled=False),
+            "scheduler": LinearNoiseScheduler(10, 0.0001, 0.02),
+            "stage": "image",
+            "config": {
+                "training": {
+                    "gradient_accumulation_steps": 1,
+                    "mixed_precision": False,
+                }
+            },
+            "context": context,
+            "random_seed": 10044,
+        }
+        first = _run_epoch(**arguments)
+        second = _run_epoch(**arguments)
+        self.assertEqual(first, second)
+
     def test_experiment_split_for_one_user(self):
         with tempfile.TemporaryDirectory(prefix="rgbe-split-") as temporary:
             root = Path(temporary)

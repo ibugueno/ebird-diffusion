@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -20,13 +21,26 @@ from ebird.models.conditional import conditional_from_config
 from ebird.models.unet import unet_from_config
 
 
-def _load_model(config: dict, device: torch.device):
-    base_checkpoint = torch.load(config["training"]["base_checkpoint"], map_location="cpu")
+def _load_model(
+    config: dict,
+    device: torch.device,
+    base_checkpoint_path: Path,
+    conditional_checkpoint_path: Path,
+):
+    if not base_checkpoint_path.is_file():
+        raise FileNotFoundError(
+            f"Base checkpoint does not exist: {base_checkpoint_path}"
+        )
+    if not conditional_checkpoint_path.is_file():
+        raise FileNotFoundError(
+            f"Conditional checkpoint does not exist: {conditional_checkpoint_path}"
+        )
+    base_checkpoint = torch.load(base_checkpoint_path, map_location="cpu")
     base = unet_from_config(config["model"])
     base.load_state_dict(base_checkpoint["model_state_dict"])
     model = conditional_from_config(base, config["model"])
     conditional_checkpoint = torch.load(
-        config["training"]["conditional_checkpoint"], map_location="cpu"
+        conditional_checkpoint_path, map_location="cpu"
     )
     model.control.load_state_dict(conditional_checkpoint["control_state_dict"])
     return model.to(device).eval()
@@ -37,6 +51,9 @@ def main() -> None:
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--seed", type=int, help="Random seed used for diffusion noise")
+    parser.add_argument("--base-checkpoint", type=Path)
+    parser.add_argument("--conditional-checkpoint", type=Path)
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument(
         "--device",
         type=int,
@@ -67,16 +84,46 @@ def main() -> None:
         raise RuntimeError("--device was provided, but CUDA is unavailable")
     else:
         device = torch.device("cpu")
-    model = _load_model(config, device)
+    base_checkpoint_path = args.base_checkpoint or Path(
+        config["training"]["base_checkpoint"]
+    )
+    conditional_checkpoint_path = args.conditional_checkpoint or Path(
+        config["training"]["conditional_checkpoint"]
+    )
+    model = _load_model(
+        config,
+        device,
+        base_checkpoint_path,
+        conditional_checkpoint_path,
+    )
     scheduler = LinearNoiseScheduler(**config["diffusion"])
-    output_root = Path(sampling["output_dir"])
+    output_root = args.output_dir or Path(sampling["output_dir"])
     seed = args.seed if args.seed is not None else int(sampling.get("seed", 44))
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
     configured_limit = args.limit if args.limit is not None else sampling.get("limit")
-    limit = len(dataset) if configured_limit is None or int(configured_limit) < 0 else int(configured_limit)
+    limit = (
+        len(dataset)
+        if configured_limit is None or int(configured_limit) < 0
+        else int(configured_limit)
+    )
     generated = 0
+    output_root.mkdir(parents=True, exist_ok=True)
+    (output_root / "sampling_metadata.json").write_text(
+        json.dumps(
+            {
+                "base_checkpoint": str(base_checkpoint_path),
+                "conditional_checkpoint": str(conditional_checkpoint_path),
+                "config": str(args.config),
+                "seed": seed,
+                "split": split,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
     with torch.inference_mode():
         for batch in loader:
@@ -98,12 +145,25 @@ def main() -> None:
             for index in range(current.shape[0]):
                 if generated >= limit:
                     break
-                sample_dir = output_root / batch["user"][index] / batch["experiment"][index]
+                sample_dir = (
+                    output_root
+                    / batch["user"][index]
+                    / batch["experiment"][index]
+                )
                 filename = batch["filename"][index]
                 sample_dir.mkdir(parents=True, exist_ok=True)
-                save_image((current[index].cpu() + 1) / 2, sample_dir / f"generated_{filename}")
-                save_image((batch["target"][index] + 1) / 2, sample_dir / f"target_{filename}")
-                save_image((batch["condition"][index] + 1) / 2, sample_dir / f"event_{filename}")
+                save_image(
+                    (current[index].cpu() + 1) / 2,
+                    sample_dir / f"generated_{filename}",
+                )
+                save_image(
+                    (batch["target"][index] + 1) / 2,
+                    sample_dir / f"target_{filename}",
+                )
+                save_image(
+                    (batch["condition"][index] + 1) / 2,
+                    sample_dir / f"event_{filename}",
+                )
                 generated += 1
             if generated >= limit:
                 break

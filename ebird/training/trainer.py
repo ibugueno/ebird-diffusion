@@ -185,6 +185,7 @@ def _run_epoch(
     stage: Stage,
     config: dict,
     context: DistributedContext,
+    random_seed: int | None = None,
 ) -> float:
     train_mode = optimizer is not None
     model.train(train_mode)
@@ -193,6 +194,10 @@ def _run_epoch(
     mixed_precision = bool(config["training"].get("mixed_precision", True)) and context.device.type == "cuda"
     gradient_clip = config["training"].get("gradient_clip")
     losses: list[float] = []
+    generator = None
+    if random_seed is not None:
+        generator = torch.Generator(device=context.device)
+        generator.manual_seed(random_seed + context.rank)
     if train_mode:
         optimizer.zero_grad(set_to_none=True)
 
@@ -204,9 +209,18 @@ def _run_epoch(
         target = batch["target"].to(context.device, non_blocking=True)
         if stage == "conditional":
             batch["condition"] = batch["condition"].to(context.device, non_blocking=True)
-        noise = torch.randn_like(target)
+        noise = torch.randn(
+            target.shape,
+            dtype=target.dtype,
+            device=context.device,
+            generator=generator,
+        )
         timesteps = torch.randint(
-            0, scheduler.num_timesteps, (target.shape[0],), device=context.device
+            0,
+            scheduler.num_timesteps,
+            (target.shape[0],),
+            device=context.device,
+            generator=generator,
         )
         noisy = scheduler.add_noise(target, noise, timesteps)
         should_step = (step + 1) % accumulation == 0 or step + 1 == effective_length
@@ -218,8 +232,11 @@ def _run_epoch(
             else nullcontext()
         )
         grad_context = torch.enable_grad() if train_mode else torch.no_grad()
+        amp_context = (
+            torch.cuda.amp.autocast() if mixed_precision else nullcontext()
+        )
         with grad_context, sync_context:
-            with torch.cuda.amp.autocast(enabled=mixed_precision):
+            with amp_context:
                 prediction = _forward(model, batch, noisy, timesteps, stage)
                 loss = torch.nn.functional.mse_loss(prediction, noise)
                 group_start = (step // accumulation) * accumulation
@@ -254,9 +271,11 @@ def train(
         raise ValueError(f"Invalid stage: {stage}")
     context = initialize(device_index=device_index)
     training = config["training"]
+    training_seed = int(training.get("seed", 44))
+    validation_seed = int(training.get("validation_seed", training_seed + 10000))
     output_dir = Path(training["output_dir"]) / stage
     _setup_logging(output_dir, context)
-    _seed(int(training.get("seed", 44)), context.rank)
+    _seed(training_seed, context.rank)
 
     try:
         train_dataset = _dataset(config, "train", stage)
@@ -308,7 +327,8 @@ def train(
             )
             logging.info(
                 "Stage=%s | device=%s | processes=%d | samples=%d | "
-                "effective_batch_size=%d | trainable_parameters=%d",
+                "effective_batch_size=%d | trainable_parameters=%d | "
+                "validation_seed=%d",
                 stage,
                 context.device,
                 context.world_size,
@@ -317,6 +337,7 @@ def train(
                 * context.world_size
                 * int(training.get("gradient_accumulation_steps", 1)),
                 sum(parameter.numel() for parameter in trainable),
+                validation_seed,
             )
 
         for epoch in range(start_epoch, epochs):
@@ -342,6 +363,7 @@ def train(
                     stage=stage,
                     config=config,
                     context=context,
+                    random_seed=validation_seed,
                 )
                 if val_loader is not None
                 else train_loss
@@ -366,6 +388,17 @@ def train(
                 torch.save(state, last_checkpoint)
                 if is_best:
                     torch.save(state, checkpoint_dir / "best.pt")
+                checkpoint_every = int(training.get("checkpoint_every", 0))
+                if checkpoint_every > 0 and (epoch + 1) % checkpoint_every == 0:
+                    snapshot = {
+                        key: value
+                        for key, value in state.items()
+                        if key not in ("optimizer_state_dict", "scaler_state_dict")
+                    }
+                    torch.save(
+                        snapshot,
+                        checkpoint_dir / f"epoch_{epoch + 1:04d}.pt",
+                    )
             if context.enabled:
                 dist.barrier()
         if writer:

@@ -1,11 +1,18 @@
 # RGBE-Gaze server workflow
 
-This guide trains the 512x512 pipeline using only `user_1` on GPUs 1, 2, and 4.
-The loader uses the source resolution directly and never changes the PNG files.
+This guide documents two separate 512x512 experiments:
+
+1. **Baseline (recommended):** the five-level architecture that already
+   produced good event-conditioned face reconstructions.
+2. **V2 (experimental):** the proposed six-level architecture with a 16x16
+   bottleneck. Its commands are intentionally kept at the end of this guide.
+
+Never reuse checkpoints across these architectures because their parameter
+shapes are incompatible.
 
 ## 1. Update and start the container
 
-Run these commands on the host from the repository root:
+Run on the host from the repository root:
 
 ```bash
 git pull origin develop
@@ -13,12 +20,12 @@ docker build -t ignacio_event_ebird .
 ./run_docker.sh
 ```
 
-The container exposes every GPU. Select one with `--device`, or select several
-with `CUDA_VISIBLE_DEVICES` when using DDP.
+The container exposes every GPU. Use `--device` for single-GPU sampling and
+`CUDA_VISIBLE_DEVICES` with `torchrun` for DDP training.
 
 ## 2. Check paths and GPUs
 
-Run these commands inside the container:
+Run inside the container:
 
 ```bash
 git status
@@ -26,10 +33,7 @@ python -c "import torch; print(torch.cuda.device_count()); print([torch.cuda.get
 ls /app/Rislab_Event_influence_volume/dataset/rgbe-gaze
 ```
 
-## 3. Build `user_1` manifests
-
-Use complete experiments for each split. This prevents adjacent frames from the
-same recording from appearing in both training and evaluation:
+## 3. Build the `user_1` manifests
 
 ```bash
 python scripts/build_rgbe_manifest.py \
@@ -42,34 +46,39 @@ python scripts/build_rgbe_manifest.py \
 
 This assigns `exp1` through `exp4` to training, `exp5` to validation, and
 `exp6` to testing. Only matching relative paths under `gray_frames` and
-`event_accumulate_frames` are indexed. Unpaired files are skipped and reported;
-add `--strict-pairs` only when incomplete pairs should be treated as an error.
+`event_accumulate_frames` are indexed. Unpaired files are skipped and reported.
 
-Check the resulting split sizes:
+Check and validate the resulting manifests:
 
 ```bash
 wc -l /app/Rislab_Event_influence_volume/rgbe-gaze/manifests-user-1-split/{train,val,test}.csv
-```
 
-## 4. Validate the indexed images
-
-```bash
 python scripts/validate_rgbe_dataset.py \
   --dataset-root /app/Rislab_Event_influence_volume/dataset/rgbe-gaze \
   --manifest /app/Rislab_Event_influence_volume/rgbe-gaze/manifests-user-1-split/all.csv
 ```
 
-## 5. Train at 512x512 on GPUs 1, 2, and 4
+# Baseline architecture (recommended)
 
-The paper used learning rate `0.0001`, batch size `80`, and `40` epochs. With
-three DDP processes, this configuration uses one image per GPU and accumulates
-27 micro-batches, producing an effective global batch of 81:
+The successful baseline is defined by `configs/rgbe_gaze/512_user1.yaml`:
 
 ```text
-1 image/GPU x 3 GPUs x 27 accumulation steps = 81 images/update
+Resolution:                  512x512
+U-Net levels:                [32, 64, 128, 256, 512]
+Deepest resolution:          32x32
+Learning rate:               0.0001
+Epochs per stage:            40
+Batch per GPU:               1
+Gradient accumulation:       27
+Effective batch on 3 GPUs:   1 x 3 x 27 = 81
+Output directory:            runs/512-user1
 ```
 
-Train the image branch first:
+The current trainer evaluates every epoch with fixed validation noise and
+timesteps, making future `best.pt` selections reproducible. This does not alter
+or invalidate the baseline checkpoints that already exist.
+
+## 4. Train the baseline image branch
 
 ```bash
 CUDA_VISIBLE_DEVICES=1,2,4 \
@@ -78,24 +87,11 @@ torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
   --config configs/rgbe_gaze/512_user1.yaml
 ```
 
-Then train the event-conditioned branch. It loads the best image checkpoint
-automatically:
+Training resumes from `runs/512-user1/image/checkpoints/last.pt` when it exists.
+Do not add `--no-resume` unless a fresh run in an empty output directory is
+intended.
 
-```bash
-CUDA_VISIBLE_DEVICES=1,2,4 \
-torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
-  --stage conditional \
-  --config configs/rgbe_gaze/512_user1.yaml
-```
-
-Both commands resume from `last.pt` by default. Add `--no-resume` only when a
-fresh run is intended. Do not pass `--device` to `torchrun`; physical GPUs
-1, 2, and 4 become local CUDA devices 0, 1, and 2 inside the DDP processes.
-
-## 6. Visualize the image branch
-
-After the image stage finishes, generate four unconditional face examples from
-its best checkpoint:
+## 5. Inspect baseline image-branch samples
 
 ```bash
 python scripts/sample_image_branch.py \
@@ -106,16 +102,31 @@ python scripts/sample_image_branch.py \
   --seed 44
 ```
 
-The command writes individual PNG files, `grid.png`, `reference_grid.png`, and
-`metadata.json` under `runs/512-user1/image/samples/seed-44/`. The reference
-grid contains real training images for qualitative context, but its entries are
-not paired with the generated images. These outputs represent the learned face
-distribution, not event-conditioned reconstructions. Sampling uses one GPU and
-does not require DDP.
+The output contains individual unconditional samples, `grid.png`,
+`reference_grid.png`, and `metadata.json`. These samples are not paired
+reconstructions; event conditioning is learned in the next stage.
 
-## 7. Reconstruct the test split
+To inspect a specific image checkpoint, add:
 
-The fixed seed makes this preliminary evaluation reproducible:
+```bash
+--checkpoint /path/to/image/checkpoint.pt \
+--output-dir /path/to/a/separate/sample-directory
+```
+
+## 6. Train the baseline conditional branch
+
+```bash
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+  --stage conditional \
+  --config configs/rgbe_gaze/512_user1.yaml
+```
+
+This stage freezes the trained image branch and learns the ControlNet-style
+event encoder. It resumes from
+`runs/512-user1/conditional/checkpoints/last.pt` when available.
+
+## 7. Reconstruct baseline test samples
 
 ```bash
 python scripts/sample_rgbe.py \
@@ -125,37 +136,99 @@ python scripts/sample_rgbe.py \
   --seed 44
 ```
 
-Use `--limit -1` to reconstruct every sample in `test.csv`.
+Use `--limit -1` to reconstruct every entry in `test.csv`. The generated,
+target, and event images are written under `samples/512-user1`.
 
-## 8. Compute MSE, SSIM, and PSNR
+To compare `best.pt`, `last.pt`, or another checkpoint without editing YAML:
+
+```bash
+python scripts/sample_rgbe.py \
+  --device 1 \
+  --config configs/rgbe_gaze/512_user1.yaml \
+  --base-checkpoint /path/to/image/checkpoint.pt \
+  --conditional-checkpoint /path/to/conditional/checkpoint.pt \
+  --output-dir /app/Rislab_Event_influence_volume/rgbe-gaze/samples/baseline-comparison \
+  --limit 8 \
+  --seed 44
+```
+
+## 8. Evaluate baseline reconstructions
 
 ```bash
 python scripts/evaluate_rgbe_metrics.py \
   --samples-dir /app/Rislab_Event_influence_volume/rgbe-gaze/samples/512-user1
 ```
 
-The command writes per-image values to `metrics/per_image_metrics.csv` and
-aggregate statistics to `metrics/summary.json`. MSE is better when lower; SSIM
-and PSNR are better when higher. For a paper, report the test sample count and
-mean plus standard deviation for every metric.
+The evaluator writes `metrics/per_image_metrics.csv` and
+`metrics/summary.json`. Report the test sample count and mean plus standard
+deviation for MSE, SSIM, and PSNR.
 
-## 9. Preliminary 256x256 memory test
+## 9. Multi-user baseline after dataset completion
 
-The existing `256_user1.yaml` configuration remains available for comparison.
-Its checkpoints and samples use separate output directories, so they cannot
-overwrite the 512x512 experiment.
+Once enough users are available, rebuild identity-disjoint manifests and use a
+dedicated configuration/output directory. Do not mix a multi-user run with the
+current `user_1` checkpoints.
 
-## 10. Multi-user training after the dataset is complete
+# V2 architecture (experimental)
 
-Once enough users are available, prefer identity-disjoint train, validation,
-and test splits. The general configuration can run on GPUs 1, 2, and 4:
+V2 is retained for a future controlled comparison. It does not replace the
+successful baseline.
+
+```text
+Resolution:                  512x512
+U-Net levels:                [32, 64, 128, 256, 512, 512]
+Deepest resolution:          16x16
+Image-branch parameters:     approximately 52.5 million
+Learning rate:               0.0001
+Epochs per stage:            80
+Batch per GPU:               3
+Gradient accumulation:       9
+Effective batch on 3 GPUs:   3 x 3 x 9 = 81
+Output directory:            runs/512-user1-v2
+```
+
+## 10. Run the V2 memory smoke test
+
+Run the image stage first:
 
 ```bash
 CUDA_VISIBLE_DEVICES=1,2,4 \
 torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
   --stage image \
-  --config configs/rgbe_gaze/256.yaml
+  --config configs/rgbe_gaze/512_user1_v2_smoke.yaml \
+  --no-resume
 ```
 
-Repeat with `--stage conditional`. Revisit the global batch configuration when
-changing the number of GPUs or the per-GPU batch size.
+Then test the more memory-intensive conditional stage:
+
+```bash
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+  --stage conditional \
+  --config configs/rgbe_gaze/512_user1_v2_smoke.yaml \
+  --no-resume
+```
+
+Monitor both commands with `nvidia-smi` before starting a full V2 run.
+
+## 11. Train V2
+
+```bash
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+  --stage image \
+  --config configs/rgbe_gaze/512_user1_v2.yaml
+```
+
+After the V2 image stage finishes:
+
+```bash
+CUDA_VISIBLE_DEVICES=1,2,4 \
+torchrun --standalone --nproc_per_node=3 scripts/train_rgbe.py \
+  --stage conditional \
+  --config configs/rgbe_gaze/512_user1_v2.yaml
+```
+
+V2 uses deterministic validation and stores model-only snapshots at epochs 20,
+40, 60, and 80. Its checkpoints and samples remain completely separate from
+the baseline.

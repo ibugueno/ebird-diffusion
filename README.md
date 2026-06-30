@@ -63,8 +63,8 @@ filename. Unpaired files are ignored by default and reported by the manifest
 builder. Input PNG files may remain at 512x512; the loader resizes them in
 memory to the configured model resolution.
 
-For the exact `user_1` split, 512x512 training on GPUs 1, 2, and 4, sampling,
-and evaluation commands, follow
+For the exact `user_1` split, the successful five-level 512x512 baseline,
+sampling, evaluation, and the optional six-level V2 experiment, follow
 [docs/server_workflow.md](docs/server_workflow.md). Design and metric details
 are documented in [docs/rgbe_gaze.md](docs/rgbe_gaze.md).
 

@@ -29,7 +29,7 @@ class RGBEGazeDataset(Dataset):
         if not self.rows:
             raise ValueError(f"Empty manifest: {self.manifest_path}")
         if self.resolution <= 0:
-            raise ValueError("resolution debe ser positiva")
+            raise ValueError("resolution must be positive")
 
     def __len__(self) -> int:
         return len(self.rows)

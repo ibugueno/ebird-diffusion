@@ -39,20 +39,20 @@ evidence of generalization to new people. Once all users are available, omit
 
 ## Training and reconstruction
 
-Use `configs/rgbe_gaze/512_user1.yaml` for the current single-user run and
-follow [server_workflow.md](server_workflow.md) for exact commands. The image
-branch must finish before the conditional branch.
+Use `configs/rgbe_gaze/512_user1.yaml` for the recommended single-user baseline
+and follow [server_workflow.md](server_workflow.md) for exact commands. The
+image branch must finish before the conditional branch.
 
 Use `scripts/sample_image_branch.py` after the image stage to inspect
 unconditional samples from its best checkpoint. The script saves individual
 images, a generated grid, and an unpaired real-image reference grid. It does
 not use event inputs because conditioning is learned in the second stage.
 
-The 512x512 configuration follows the previous eBIRD experiment with learning
-rate `0.0001` and 40 epochs per stage. It uses batch size 1 per GPU across three
-GPUs and 27 gradient-accumulation steps, for an effective global batch of 81.
-It also enables AMP, gradient checkpointing, and low-resolution attention. DDP
-replicates the model on every GPU; GPU memory is not pooled for one sample.
+The successful baseline uses five U-Net levels, 40 epochs per stage, batch size
+1 per GPU, and 27 gradient-accumulation steps. The optional V2 configuration is
+documented separately at the end of the server workflow. It adds a sixth level
+and a 16x16 bottleneck, but it should be treated as an experimental comparison,
+not a replacement for the baseline.
 
 ## Reconstruction metrics
 

@@ -37,8 +37,11 @@ def _device(index: int | None) -> torch.device:
     return torch.device("cpu")
 
 
-def _load_model(config: dict, device: torch.device) -> torch.nn.Module:
-    checkpoint_path = Path(config["training"]["base_checkpoint"])
+def _load_model(
+    config: dict,
+    device: torch.device,
+    checkpoint_path: Path,
+) -> torch.nn.Module:
     if not checkpoint_path.is_file():
         raise FileNotFoundError(
             f"Image-branch checkpoint does not exist: {checkpoint_path}. "
@@ -59,6 +62,11 @@ def main() -> None:
     parser.add_argument("--num-samples", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--seed", type=int, default=44)
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        help="Image checkpoint; defaults to training.base_checkpoint",
+    )
     parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
     if args.num_samples < 1 or args.batch_size < 1:
@@ -67,7 +75,10 @@ def main() -> None:
     config = load_config(args.config)
     require_sections(config, "data", "model", "diffusion", "training")
     device = _device(args.device)
-    model = _load_model(config, device)
+    checkpoint_path = args.checkpoint or Path(
+        config["training"]["base_checkpoint"]
+    )
+    model = _load_model(config, device, checkpoint_path)
     scheduler = LinearNoiseScheduler(**config["diffusion"])
     image_size = int(config["model"]["image_size"])
     channels = int(config["model"].get("in_channels", 1))
@@ -135,7 +146,7 @@ def main() -> None:
     save_image(samples, grid_path, nrow=grid_columns)
     save_image(references, reference_grid_path, nrow=grid_columns)
     metadata = {
-        "checkpoint": str(config["training"]["base_checkpoint"]),
+        "checkpoint": str(checkpoint_path),
         "config": str(args.config),
         "device": str(device),
         "image_size": image_size,
