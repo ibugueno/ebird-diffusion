@@ -71,6 +71,18 @@ def _paths(protocol: str) -> dict[str, Path]:
         / protocol
         / "specific-51-66"
         / "validation-checkpoints",
+        "specific_test_samples": VOLUME_ROOT
+        / "samples"
+        / "generalization-v2"
+        / protocol
+        / "specific-51-66"
+        / "test-best",
+        "generic_test_samples": VOLUME_ROOT
+        / "samples"
+        / "generalization-v2"
+        / protocol
+        / "generic-1-50"
+        / "test-best",
     }
 
 
@@ -129,6 +141,7 @@ def _prepare(protocol: str, dataset_root: Path, *, force: bool) -> None:
             allow_missing_users=True,
             train_experiments=train_experiments,
             val_experiments=["exp5"],
+            test_experiments=["exp6"],
             train_stride=int(settings["train_stride"]),
             drop_users_without_train=True,
         )
@@ -283,6 +296,59 @@ def _evaluate_specific_snapshots(
         print(f"Checkpoint metric summary: {aggregate_path}")
 
 
+def _evaluate_test(
+    protocol: str,
+    *,
+    model: str,
+    device: int,
+    limit: int,
+    samples_per_user: int,
+    execute: bool,
+) -> None:
+    paths = _paths(protocol)
+    if model not in ("generic", "specific"):
+        raise ValueError(f"Invalid test model: {model}")
+    if limit == 0:
+        raise ValueError("--test-limit cannot be zero")
+    if samples_per_user < 0:
+        raise ValueError("--test-samples-per-user cannot be negative")
+    selection_name = (
+        "all"
+        if limit < 0 and samples_per_user == 0
+        else f"limit-{limit}-per-user-{samples_per_user}"
+    )
+    config = paths[f"{model}_config"]
+    output_dir = paths[f"{model}_test_samples"] / selection_name
+    command = [
+        sys.executable,
+        "scripts/sample_rgbe.py",
+        "--device",
+        str(device),
+        "--config",
+        str(config),
+        "--split",
+        "test",
+        "--limit",
+        str(limit),
+        "--seed",
+        "44",
+        "--output-dir",
+        str(output_dir),
+    ]
+    if samples_per_user > 0:
+        command.extend(["--samples-per-user", str(samples_per_user)])
+    _run(command, execute=execute)
+    _run(
+        [
+            sys.executable,
+            "scripts/evaluate_rgbe_metrics.py",
+            "--samples-dir",
+            str(output_dir),
+        ],
+        execute=execute,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Prepare and run the V2 cross-user generalization protocol"
@@ -298,12 +364,21 @@ def main() -> None:
             "generic-conditional",
             "specific-conditional",
             "specific-evaluate",
+            "generic-test",
+            "specific-test",
         ),
         default=["all"],
     )
     parser.add_argument("--gpus", default="1,2,4")
     parser.add_argument("--sampling-device", type=int, default=1)
     parser.add_argument("--samples-per-user", type=int, default=1)
+    parser.add_argument("--test-limit", type=int, default=100)
+    parser.add_argument(
+        "--test-samples-per-user",
+        type=int,
+        default=7,
+        help="Balanced test samples per user; use 0 with --test-limit -1 for all",
+    )
     parser.add_argument(
         "--checkpoint-epochs",
         type=int,
@@ -344,6 +419,24 @@ def main() -> None:
             device=args.sampling_device,
             samples_per_user=args.samples_per_user,
             checkpoint_epochs=args.checkpoint_epochs,
+            execute=args.execute,
+        )
+    if "specific-test" in steps:
+        _evaluate_test(
+            args.protocol,
+            model="specific",
+            device=args.sampling_device,
+            limit=args.test_limit,
+            samples_per_user=args.test_samples_per_user,
+            execute=args.execute,
+        )
+    if "generic-test" in steps:
+        _evaluate_test(
+            args.protocol,
+            model="generic",
+            device=args.sampling_device,
+            limit=args.test_limit,
+            samples_per_user=args.test_samples_per_user,
             execute=args.execute,
         )
     if not args.execute:

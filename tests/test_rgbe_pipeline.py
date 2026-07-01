@@ -19,6 +19,7 @@ from ebird.models.unet import unet_from_config
 from ebird.training.distributed import DistributedContext
 from ebird.training.trainer import _create_model, _run_epoch
 from scripts.evaluate_rgbe_metrics import compute_metrics
+from scripts.sample_rgbe import _balanced_sample_indices
 
 
 SKIMAGE_AVAILABLE = importlib.util.find_spec("skimage") is not None
@@ -49,6 +50,17 @@ def _create_dataset(
 
 
 class RGBEGazePipelineTest(unittest.TestCase):
+    def test_balanced_sampling_interleaves_users(self):
+        rows = [
+            {"user": "user_1"},
+            {"user": "user_1"},
+            {"user": "user_1"},
+            {"user": "user_2"},
+            {"user": "user_2"},
+            {"user": "user_2"},
+        ]
+        self.assertEqual(_balanced_sample_indices(rows, 2), [0, 3, 1, 4])
+
     def test_conditional_branch_can_initialize_from_generic_checkpoint(self):
         with tempfile.TemporaryDirectory(prefix="rgbe-transfer-") as temporary:
             root = Path(temporary)

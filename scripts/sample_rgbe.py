@@ -21,6 +21,22 @@ from ebird.models.conditional import conditional_from_config
 from ebird.models.unet import unet_from_config
 
 
+def _balanced_sample_indices(
+    rows: list[dict[str, str]], samples_per_user: int
+) -> list[int]:
+    indices_by_user: dict[str, list[int]] = {}
+    for index, row in enumerate(rows):
+        user_indices = indices_by_user.setdefault(row["user"], [])
+        if len(user_indices) < samples_per_user:
+            user_indices.append(index)
+    return [
+        user_indices[offset]
+        for offset in range(samples_per_user)
+        for user_indices in indices_by_user.values()
+        if offset < len(user_indices)
+    ]
+
+
 def _load_model(
     config: dict,
     device: torch.device,
@@ -84,14 +100,9 @@ def main() -> None:
     if args.samples_per_user is not None:
         if args.samples_per_user < 1:
             raise ValueError("--samples-per-user must be at least 1")
-        user_counts: dict[str, int] = {}
-        selected_indices: list[int] = []
-        for index, row in enumerate(full_dataset.rows):
-            user = row["user"]
-            count = user_counts.get(user, 0)
-            if count < args.samples_per_user:
-                selected_indices.append(index)
-                user_counts[user] = count + 1
+        selected_indices = _balanced_sample_indices(
+            full_dataset.rows, args.samples_per_user
+        )
         dataset = Subset(full_dataset, selected_indices)
     loader = DataLoader(dataset, batch_size=int(sampling.get("batch_size", 1)))
     if torch.cuda.is_available():

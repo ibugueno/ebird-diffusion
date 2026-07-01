@@ -8,18 +8,20 @@ existing `user_1`, baseline, and V2 runs.
 
 The reduced protocol is the initial experiment:
 
-| Phase | Users | Train | Validation | Sampling |
-|---|---:|---|---|---:|
-| Generic image branch | 1-50 | `exp1` | `exp5` | every fifth training pair |
-| Generic conditional branch | 1-50 | `exp1` | `exp5` | every fifth training pair |
-| Specific conditional branch | 51-66 | `exp2` | `exp5` | every fifth training pair |
+| Phase | Users | Train | Validation | Test | Sampling |
+|---|---:|---|---|---|---:|
+| Generic image branch | 1-50 | `exp1` | `exp5` | `exp6` | every fifth training pair |
+| Generic conditional branch | 1-50 | `exp1` | `exp5` | `exp6` | every fifth training pair |
+| Specific conditional branch | 51-66 | `exp2` | `exp5` | `exp6` | every fifth training pair |
 
-Validation always uses every available paired sample from `exp5`. A requested
-user is excluded from all splits when the required training experiment has no
-valid pair. Missing users and excluded users are recorded in `summary.json`.
+Validation always uses every available paired sample from `exp5`; `exp6` is
+reserved for final held-out reconstruction metrics. A requested user is
+excluded from all splits when the required training experiment has no valid
+pair. Missing users and excluded users are recorded in `summary.json`.
 
 The full protocol is already supported. It changes training to `exp1` through
-`exp4` and uses every pair (`stride=1`), while retaining `exp5` for validation.
+`exp4` and uses every pair (`stride=1`), while retaining `exp5` for validation
+and `exp6` for testing.
 
 ## Transfer behavior
 
@@ -66,6 +68,17 @@ training.
 python scripts/run_generalization_v2.py \
   --protocol reduced \
   --steps prepare \
+  --execute
+```
+
+If manifests were created with an earlier version of this pipeline, rebuild
+them once so `test.csv` contains `exp6`:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol reduced \
+  --steps prepare \
+  --force-prepare \
   --execute
 ```
 
@@ -160,6 +173,70 @@ samples/generalization-v2/reduced/specific-51-66/
 Use epoch 0 as the zero-shot reference. The minimum acceptable adaptation epoch
 should be selected using a predeclared SSIM/PSNR criterion plus visual review,
 not visual inspection alone.
+
+## Generate final test reconstructions and metrics
+
+After selecting each `best.pt` using `exp5`, evaluate the models once on
+held-out `exp6`. The following commands generate up to 100 samples distributed
+round-robin across the included users and compute MSE, SSIM, and PSNR.
+
+First, the generic model can be evaluated on users 1-50:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol reduced \
+  --steps generic-test \
+  --sampling-device 1 \
+  --test-limit 100 \
+  --test-samples-per-user 7 \
+  --execute
+```
+
+Then evaluate the adapted specific model on users 51-66:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol reduced \
+  --steps specific-test \
+  --sampling-device 1 \
+  --test-limit 100 \
+  --test-samples-per-user 7 \
+  --execute
+```
+
+For the final paper evaluation, process every available `exp6` pair:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol reduced \
+  --steps specific-test \
+  --sampling-device 1 \
+  --test-limit -1 \
+  --test-samples-per-user 0 \
+  --execute
+```
+
+Use the same command with `--steps generic-test` to evaluate every generic-user
+test pair.
+
+Equivalent manual commands for the balanced 100-sample evaluation are:
+
+```bash
+python scripts/sample_rgbe.py \
+  --device 1 \
+  --config configs/rgbe_gaze/generalization_v2/specific_51_66_reduced.yaml \
+  --split test \
+  --limit 100 \
+  --samples-per-user 7 \
+  --seed 44 \
+  --output-dir /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/test-best/limit-100-per-user-7
+
+python scripts/evaluate_rgbe_metrics.py \
+  --samples-dir /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/test-best/limit-100-per-user-7
+```
+
+The generated images, per-image CSV, and metric summary remain separate from
+the validation-checkpoint outputs.
 
 ## Run the future full-data protocol
 
