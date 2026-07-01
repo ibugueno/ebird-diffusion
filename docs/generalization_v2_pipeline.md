@@ -143,26 +143,6 @@ would create thousands of large checkpoints and substantially slow training.
 
 ## Measure adaptation speed
 
-After generic conditional training, generate up to 100 balanced validation
-samples and metrics for its checkpoints at epochs 5 through 40:
-
-```bash
-python scripts/run_generalization_v2.py \
-  --protocol reduced \
-  --steps generic-evaluate \
-  --sampling-device 1 \
-  --samples-per-user 7 \
-  --validation-limit 100 \
-  --checkpoint-epochs 5 10 15 20 25 30 35 40 \
-  --execute
-```
-
-Review the generic checkpoint metrics with:
-
-```bash
-cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/generic-1-50/validation-checkpoints/limit-100-per-user-7/checkpoint_metrics.csv
-```
-
 After specific fine-tuning, evaluate the generic zero-shot model (`epoch 0`)
 and every five-epoch specific snapshot on the same balanced subset of `exp5`:
 
@@ -183,8 +163,10 @@ Review the specific adaptation curve with:
 cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/validation-checkpoints/limit-100-per-user-7/checkpoint_metrics.csv
 ```
 
-Both commands save the generated, target, and event images for every evaluated
-checkpoint, then compute MSE, SSIM, and PSNR. Sampling uses 1,000
+The command saves the generated, target, and event images for every evaluated
+checkpoint, then computes global MSE, SSIM, and PSNR summaries over the sampled
+set. It also creates horizontal `Input (event) | Generated | Target`
+comparisons. Sampling uses 1,000
 reverse-diffusion steps per image, so this evaluation is intentionally separate
 from training. The specific output is organized as:
 
@@ -193,6 +175,8 @@ samples/generalization-v2/reduced/specific-51-66/
 └── validation-checkpoints/
     └── limit-100-per-user-7/
         ├── epoch_0000_generic/
+        │   ├── comparisons/
+        │   └── metrics/summary.json
         ├── epoch_0005/
         ├── ...
         ├── epoch_0040/
@@ -228,6 +212,11 @@ cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduc
 ls /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/generic-1-50/test-best/limit-100-per-user-7
 ```
 
+The `comparisons/` subtree contains the horizontal `Input (event) | Generated |
+Target` images. `metrics/summary.json` contains the global metrics over the 100
+generated test samples, while `metrics/per_image_metrics.csv` retains the
+individual values.
+
 Then evaluate the adapted specific model on users 51-66:
 
 ```bash
@@ -246,6 +235,9 @@ Review its test metrics and generated images:
 cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/test-best/limit-100-per-user-7/metrics/summary.json
 ls /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/test-best/limit-100-per-user-7
 ```
+
+This output follows the same `comparisons/` and `metrics/` layout as the
+generic model.
 
 For the final paper evaluation, process every available `exp6` pair:
 

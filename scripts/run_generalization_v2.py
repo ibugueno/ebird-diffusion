@@ -261,6 +261,22 @@ def _run(
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
 
 
+def _compose_comparisons(samples_dir: Path, *, execute: bool) -> None:
+    _run(
+        [
+            sys.executable,
+            "scripts/compose_rgbe_triplets.py",
+            "--input-dir",
+            str(samples_dir),
+            "--output-dir",
+            str(samples_dir / "comparisons"),
+            "--recursive",
+            "--skip-incomplete",
+        ],
+        execute=execute,
+    )
+
+
 def _train_step(step: str, protocol: str, gpus: str, execute: bool) -> None:
     paths = _paths(protocol)
     config = paths["specific_config"] if step == "specific-conditional" else paths["generic_config"]
@@ -364,6 +380,7 @@ def _evaluate_snapshots(
             ],
             execute=execute,
         )
+        _compose_comparisons(output_dir, execute=execute)
         if execute:
             summary_path = output_dir / "metrics" / "summary.json"
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -441,6 +458,7 @@ def _evaluate_test(
         ],
         execute=execute,
     )
+    _compose_comparisons(output_dir, execute=execute)
 
 
 def main() -> None:

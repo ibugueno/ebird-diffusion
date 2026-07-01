@@ -78,6 +78,32 @@ def _compose(
     return canvas
 
 
+def _complete_triplets(
+    input_dir: Path,
+    *,
+    skip_incomplete: bool,
+) -> tuple[list[tuple[str, dict[str, Path]]], list[str]]:
+    indexed = _index_images(input_dir)
+    complete: list[tuple[str, dict[str, Path]]] = []
+    incomplete: list[str] = []
+    expected = {prefix for prefix, _ in PANELS}
+    for suffix, entries in sorted(indexed.items()):
+        missing = expected - set(entries)
+        if missing:
+            incomplete.append(
+                f"{suffix}: missing {', '.join(sorted(missing))}"
+            )
+        else:
+            complete.append((suffix, entries))
+    if incomplete and not skip_incomplete:
+        preview = "\n".join(incomplete[:10])
+        raise ValueError(
+            f"Found {len(incomplete)} incomplete triplets. "
+            f"Use --skip-incomplete to ignore them.\n{preview}"
+        )
+    return complete, incomplete
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Compose Input | Generated | Target RGBE comparison images"
@@ -88,6 +114,11 @@ def main() -> None:
     parser.add_argument("--gap", type=int, default=4)
     parser.add_argument("--label-height", type=int, default=44)
     parser.add_argument("--no-labels", action="store_true")
+    parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Find sample directories recursively and preserve their layout",
+    )
     parser.add_argument(
         "--skip-incomplete",
         action="store_true",
@@ -104,48 +135,49 @@ def main() -> None:
     if args.gap < 0 or args.label_height < 1:
         raise ValueError("--gap must be non-negative and --label-height must be positive")
 
-    indexed = _index_images(input_dir)
-    complete: list[tuple[str, dict[str, Path]]] = []
-    incomplete: list[str] = []
-    expected = {prefix for prefix, _ in PANELS}
-    for suffix, entries in sorted(indexed.items()):
-        missing = expected - set(entries)
-        if missing:
-            incomplete.append(
-                f"{suffix}: missing {', '.join(sorted(missing))}"
-            )
-        else:
-            complete.append((suffix, entries))
+    if args.limit is not None and args.limit < 1:
+        raise ValueError("--limit must be positive")
+    source_dirs = (
+        sorted({path.parent for path in input_dir.rglob("generated_*.png")})
+        if args.recursive
+        else [input_dir]
+    )
+    if not source_dirs:
+        raise ValueError(f"No generated images found in {input_dir}")
 
-    if incomplete and not args.skip_incomplete:
-        preview = "\n".join(incomplete[:10])
-        raise ValueError(
-            f"Found {len(incomplete)} incomplete triplets. "
-            f"Use --skip-incomplete to ignore them.\n{preview}"
-        )
-    if not complete:
-        raise ValueError(f"No complete RGBE triplets found in {input_dir}")
-    if args.limit is not None:
-        if args.limit < 1:
-            raise ValueError("--limit must be positive")
-        complete = complete[: args.limit]
-
-    output_dir.mkdir(parents=True, exist_ok=True)
     prefixes = [prefix for prefix, _ in PANELS]
     labels = [label for _, label in PANELS]
-    for suffix, entries in complete:
-        comparison = _compose(
-            [entries[prefix] for prefix in prefixes],
-            labels,
-            include_labels=not args.no_labels,
-            label_height=args.label_height,
-            gap=args.gap,
+    created = 0
+    incomplete_count = 0
+    for source_dir in source_dirs:
+        complete, incomplete = _complete_triplets(
+            source_dir,
+            skip_incomplete=args.skip_incomplete,
         )
-        comparison.save(output_dir / f"comparison_{suffix}")
+        incomplete_count += len(incomplete)
+        relative = source_dir.relative_to(input_dir)
+        destination = output_dir / relative
+        for suffix, entries in complete:
+            if args.limit is not None and created >= args.limit:
+                break
+            destination.mkdir(parents=True, exist_ok=True)
+            comparison = _compose(
+                [entries[prefix] for prefix in prefixes],
+                labels,
+                include_labels=not args.no_labels,
+                label_height=args.label_height,
+                gap=args.gap,
+            )
+            comparison.save(destination / f"comparison_{suffix}")
+            created += 1
+        if args.limit is not None and created >= args.limit:
+            break
 
-    print(f"Created {len(complete)} comparison images in {output_dir}")
-    if incomplete:
-        print(f"Skipped {len(incomplete)} incomplete triplets")
+    if not created:
+        raise ValueError(f"No complete RGBE triplets found in {input_dir}")
+    print(f"Created {created} comparison images in {output_dir}")
+    if incomplete_count:
+        print(f"Skipped {incomplete_count} incomplete triplets")
 
 
 if __name__ == "__main__":
