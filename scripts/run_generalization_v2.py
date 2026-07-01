@@ -67,11 +67,17 @@ def _paths(protocol: str) -> dict[str, Path]:
         / "generalization-v2"
         / protocol
         / "specific-51-66",
-        "specific_samples": VOLUME_ROOT
+        "specific_validation_samples": VOLUME_ROOT
         / "samples"
         / "generalization-v2"
         / protocol
         / "specific-51-66"
+        / "validation-checkpoints",
+        "generic_validation_samples": VOLUME_ROOT
+        / "samples"
+        / "generalization-v2"
+        / protocol
+        / "generic-1-50"
         / "validation-checkpoints",
         "specific_test_samples": VOLUME_ROOT
         / "samples"
@@ -279,21 +285,27 @@ def _train_step(step: str, protocol: str, gpus: str, execute: bool) -> None:
     )
 
 
-def _evaluate_specific_snapshots(
+def _evaluate_snapshots(
     protocol: str,
     *,
+    model: str,
     device: int,
     samples_per_user: int,
+    limit: int,
     checkpoint_epochs: list[int],
     execute: bool,
 ) -> None:
     paths = _paths(protocol)
+    if model not in ("generic", "specific"):
+        raise ValueError(f"Invalid snapshot model: {model}")
+    if limit == 0:
+        raise ValueError("--validation-limit cannot be zero")
     invalid_epochs = [epoch for epoch in checkpoint_epochs if epoch < 0 or epoch > 40]
     if invalid_epochs:
         raise ValueError(f"Checkpoint epochs must be between 0 and 40: {invalid_epochs}")
     evaluations = []
     for epoch in dict.fromkeys(checkpoint_epochs):
-        if epoch == 0:
+        if epoch == 0 and model == "specific":
             evaluations.append(
                 (
                     0,
@@ -304,27 +316,31 @@ def _evaluate_specific_snapshots(
                     "epoch_0000_generic",
                 )
             )
-        else:
+        elif epoch > 0:
             evaluations.append(
                 (
                     epoch,
-                    paths["specific_run"]
+                    paths[f"{model}_run"]
                     / "conditional"
                     / "checkpoints"
                     / f"epoch_{epoch:04d}.pt",
                     f"epoch_{epoch:04d}",
                 )
             )
+    if not evaluations:
+        raise ValueError("No checkpoints were selected for evaluation")
+    selection_name = f"limit-{limit}-per-user-{samples_per_user}"
+    output_root = paths[f"{model}_validation_samples"] / selection_name
     aggregate_rows: list[dict[str, object]] = []
     for epoch, checkpoint, output_name in evaluations:
-        output_dir = paths["specific_samples"] / output_name
+        output_dir = output_root / output_name
         sample_command = [
             sys.executable,
             "scripts/sample_rgbe.py",
             "--device",
             str(device),
             "--config",
-            str(paths["specific_config"]),
+            str(paths[f"{model}_config"]),
             "--conditional-checkpoint",
             str(checkpoint),
             "--split",
@@ -332,7 +348,7 @@ def _evaluate_specific_snapshots(
             "--samples-per-user",
             str(samples_per_user),
             "--limit",
-            "-1",
+            str(limit),
             "--seed",
             "44",
             "--output-dir",
@@ -365,7 +381,7 @@ def _evaluate_specific_snapshots(
                 }
             )
     if execute:
-        aggregate_path = paths["specific_samples"] / "checkpoint_metrics.csv"
+        aggregate_path = output_root / "checkpoint_metrics.csv"
         aggregate_path.parent.mkdir(parents=True, exist_ok=True)
         with aggregate_path.open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=tuple(aggregate_rows[0]))
@@ -441,6 +457,7 @@ def main() -> None:
             "generic-image",
             "generic-conditional",
             "specific-conditional",
+            "generic-evaluate",
             "specific-evaluate",
             "generic-test",
             "specific-test",
@@ -450,6 +467,7 @@ def main() -> None:
     parser.add_argument("--gpus", default="1,2,4")
     parser.add_argument("--sampling-device", type=int, default=1)
     parser.add_argument("--samples-per-user", type=int, default=1)
+    parser.add_argument("--validation-limit", type=int, default=100)
     parser.add_argument("--test-limit", type=int, default=100)
     parser.add_argument(
         "--test-samples-per-user",
@@ -462,7 +480,7 @@ def main() -> None:
         type=int,
         nargs="+",
         default=list(range(0, 41, 5)),
-        help="Specific checkpoints to evaluate; epoch 0 is the generic model",
+        help="Checkpoints to evaluate; epoch 0 is the generic zero-shot model",
     )
     parser.add_argument("--dataset-root", type=Path, default=DATASET_ROOT)
     parser.add_argument(
@@ -491,11 +509,23 @@ def main() -> None:
     for step in TRAINING_STEPS:
         if step in steps:
             _train_step(step, args.protocol, args.gpus, args.execute)
-    if "specific-evaluate" in steps:
-        _evaluate_specific_snapshots(
+    if "generic-evaluate" in steps:
+        _evaluate_snapshots(
             args.protocol,
+            model="generic",
             device=args.sampling_device,
             samples_per_user=args.samples_per_user,
+            limit=args.validation_limit,
+            checkpoint_epochs=args.checkpoint_epochs,
+            execute=args.execute,
+        )
+    if "specific-evaluate" in steps:
+        _evaluate_snapshots(
+            args.protocol,
+            model="specific",
+            device=args.sampling_device,
+            samples_per_user=args.samples_per_user,
+            limit=args.validation_limit,
             checkpoint_epochs=args.checkpoint_epochs,
             execute=args.execute,
         )

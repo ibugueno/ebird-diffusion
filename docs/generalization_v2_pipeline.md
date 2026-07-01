@@ -101,6 +101,7 @@ Run all training phases sequentially on GPUs 1, 2, and 4:
 python scripts/run_generalization_v2.py \
   --protocol reduced \
   --gpus 1,2,4 \
+  --force-prepare \
   --execute
 ```
 
@@ -142,34 +143,60 @@ would create thousands of large checkpoints and substantially slow training.
 
 ## Measure adaptation speed
 
-After specific fine-tuning finishes, evaluate the generic zero-shot model
-(`epoch 0`) and every five-epoch specific snapshot on the same balanced subset
-of `exp5`:
+After generic conditional training, generate up to 100 balanced validation
+samples and metrics for its checkpoints at epochs 5 through 40:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol reduced \
+  --steps generic-evaluate \
+  --sampling-device 1 \
+  --samples-per-user 7 \
+  --validation-limit 100 \
+  --checkpoint-epochs 5 10 15 20 25 30 35 40 \
+  --execute
+```
+
+Review the generic checkpoint metrics with:
+
+```bash
+cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/generic-1-50/validation-checkpoints/limit-100-per-user-7/checkpoint_metrics.csv
+```
+
+After specific fine-tuning, evaluate the generic zero-shot model (`epoch 0`)
+and every five-epoch specific snapshot on the same balanced subset of `exp5`:
 
 ```bash
 python scripts/run_generalization_v2.py \
   --protocol reduced \
   --steps specific-evaluate \
   --sampling-device 1 \
-  --samples-per-user 1 \
+  --samples-per-user 7 \
+  --validation-limit 100 \
+  --checkpoint-epochs 0 5 10 15 20 25 30 35 40 \
   --execute
 ```
 
-This reconstructs one validation pair per included user with a fixed diffusion
-seed, then computes MSE, SSIM, and PSNR. Increase `--samples-per-user` for the
-final analysis. Sampling uses 1,000 reverse-diffusion steps per image, so this
-evaluation is intentionally separate from training. To inspect only selected
-checkpoints, add for example `--checkpoint-epochs 0 5 10 20 40`. The aggregate
-curve is written to:
+Review the specific adaptation curve with:
+
+```bash
+cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/validation-checkpoints/limit-100-per-user-7/checkpoint_metrics.csv
+```
+
+Both commands save the generated, target, and event images for every evaluated
+checkpoint, then compute MSE, SSIM, and PSNR. Sampling uses 1,000
+reverse-diffusion steps per image, so this evaluation is intentionally separate
+from training. The specific output is organized as:
 
 ```text
 samples/generalization-v2/reduced/specific-51-66/
 └── validation-checkpoints/
-    ├── epoch_0000_generic/
-    ├── epoch_0005/
-    ├── ...
-    ├── epoch_0040/
-    └── checkpoint_metrics.csv
+    └── limit-100-per-user-7/
+        ├── epoch_0000_generic/
+        ├── epoch_0005/
+        ├── ...
+        ├── epoch_0040/
+        └── checkpoint_metrics.csv
 ```
 
 Use epoch 0 as the zero-shot reference. The minimum acceptable adaptation epoch
@@ -194,6 +221,13 @@ python scripts/run_generalization_v2.py \
   --execute
 ```
 
+Review its test metrics and generated images:
+
+```bash
+cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/generic-1-50/test-best/limit-100-per-user-7/metrics/summary.json
+ls /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/generic-1-50/test-best/limit-100-per-user-7
+```
+
 Then evaluate the adapted specific model on users 51-66:
 
 ```bash
@@ -204,6 +238,13 @@ python scripts/run_generalization_v2.py \
   --test-limit 100 \
   --test-samples-per-user 7 \
   --execute
+```
+
+Review its test metrics and generated images:
+
+```bash
+cat /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/test-best/limit-100-per-user-7/metrics/summary.json
+ls /app/Rislab_Event_influence_volume/rgbe-gaze/samples/generalization-v2/reduced/specific-51-66/test-best/limit-100-per-user-7
 ```
 
 For the final paper evaluation, process every available `exp6` pair:
