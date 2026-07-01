@@ -126,15 +126,22 @@ def build_manifests(
     test_ratio: float = 0.1,
     seed: int = 44,
     include_users: Iterable[str] | None = None,
+    allow_missing_users: bool = False,
     strict_pairs: bool = False,
+    train_experiments: Iterable[str] | None = None,
     val_experiments: Iterable[str] | None = None,
     test_experiments: Iterable[str] | None = None,
+    train_stride: int = 1,
+    val_stride: int = 1,
+    test_stride: int = 1,
+    drop_users_without_train: bool = False,
 ) -> dict[str, int]:
     dataset_root = Path(dataset_root).resolve()
     output_dir = Path(output_dir).resolve()
     targets = _image_map(dataset_root / target_dir)
     events = _image_map(dataset_root / event_dir)
 
+    missing_users: list[str] = []
     selected_users = (
         {_normalize_user(user) for user in include_users} if include_users else None
     )
@@ -143,7 +150,7 @@ def build_manifests(
             _parse_identity(relative)[0] for relative in set(targets) | set(events)
         }
         missing_users = sorted(selected_users - available_users, key=_numeric_user_key)
-        if missing_users:
+        if missing_users and not allow_missing_users:
             raise ValueError(
                 "Requested users were not found: " + ", ".join(missing_users)
             )
@@ -186,21 +193,34 @@ def build_manifests(
             }
         )
 
+    training_experiments = {
+        _normalize_experiment(value) for value in (train_experiments or [])
+    }
     validation_experiments = {
         _normalize_experiment(value) for value in (val_experiments or [])
     }
     testing_experiments = {
         _normalize_experiment(value) for value in (test_experiments or [])
     }
-    overlap = validation_experiments & testing_experiments
+    experiment_groups = {
+        "train": training_experiments,
+        "val": validation_experiments,
+        "test": testing_experiments,
+    }
+    overlap = set()
+    names = tuple(experiment_groups)
+    for index, first in enumerate(names):
+        for second in names[index + 1 :]:
+            overlap.update(experiment_groups[first] & experiment_groups[second])
     if overlap:
         raise ValueError(
-            "Validation and test experiments overlap: " + ", ".join(sorted(overlap))
+            "Experiment splits overlap: " + ", ".join(sorted(overlap))
         )
 
-    if validation_experiments or testing_experiments:
+    explicit_experiment_split = any(experiment_groups.values())
+    if explicit_experiment_split:
         available_experiments = {row["experiment"] for row in rows}
-        requested = validation_experiments | testing_experiments
+        requested = set().union(*experiment_groups.values())
         missing_experiments = sorted(requested - available_experiments)
         if missing_experiments:
             raise ValueError(
@@ -212,8 +232,23 @@ def build_manifests(
                 row["split"] = "test"
             elif row["experiment"] in validation_experiments:
                 row["split"] = "val"
+            elif training_experiments:
+                row["split"] = "train" if row["experiment"] in training_experiments else "exclude"
             else:
                 row["split"] = "train"
+        rows = [row for row in rows if row["split"] != "exclude"]
+
+        users_without_train: list[str] = []
+        if drop_users_without_train:
+            selected_row_users = {row["user"] for row in rows}
+            users_with_train = {
+                row["user"] for row in rows if row["split"] == "train"
+            }
+            users_without_train = sorted(
+                selected_row_users - users_with_train,
+                key=_numeric_user_key,
+            )
+            rows = [row for row in rows if row["user"] in users_with_train]
         if not any(row["split"] == "train" for row in rows):
             raise ValueError("The experiment split produced an empty training set")
     else:
@@ -225,6 +260,27 @@ def build_manifests(
         )
         for row in rows:
             row["split"] = assignments[row["user"]]
+        users_without_train = []
+
+    strides = {
+        "train": int(train_stride),
+        "val": int(val_stride),
+        "test": int(test_stride),
+    }
+    invalid_strides = {name: value for name, value in strides.items() if value < 1}
+    if invalid_strides:
+        values = ", ".join(f"{name}={value}" for name, value in invalid_strides.items())
+        raise ValueError(f"Manifest strides must be at least 1: {values}")
+
+    group_indices: Counter[tuple[str, str, str]] = Counter()
+    sampled_rows: list[dict[str, str]] = []
+    for row in rows:
+        key = (row["split"], row["user"], row["experiment"])
+        index = group_indices[key]
+        group_indices[key] += 1
+        if index % strides[row["split"]] == 0:
+            sampled_rows.append(row)
+    rows = sampled_rows
 
     _write_manifest(output_dir / "all.csv", rows)
     counts = Counter(row["split"] for row in rows)
@@ -233,12 +289,27 @@ def build_manifests(
             output_dir / f"{split}.csv",
             [row for row in rows if row["split"] == split],
         )
-    return {
+    result = {
         "paired": len(rows),
         "skipped_without_event": len(missing_events),
         "skipped_without_target": len(missing_targets),
         **{split: counts.get(split, 0) for split in ("train", "val", "test")},
     }
+    if selected_users is not None and (
+        allow_missing_users
+        or drop_users_without_train
+        or any(value > 1 for value in strides.values())
+    ):
+        included_users = {row["user"] for row in rows}
+        result.update(
+            {
+                "requested_users": len(selected_users),
+                "included_users": len(included_users),
+                "missing_users": len(missing_users),
+                "users_without_train": len(users_without_train),
+            }
+        )
+    return result
 
 
 def validate_manifest(

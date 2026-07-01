@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import random
@@ -116,7 +117,23 @@ def _create_model(stage: Stage, config: dict, device: torch.device) -> nn.Module
     if stage == "image":
         return unet_from_config(config["model"]).to(device)
     base = _load_base(config, device)
-    return conditional_from_config(base, config["model"]).to(device)
+    model = conditional_from_config(base, config["model"])
+    initialization_path = config["training"].get("conditional_init_checkpoint")
+    if initialization_path:
+        initialization_path = Path(initialization_path)
+        if not initialization_path.is_file():
+            raise FileNotFoundError(
+                "Conditional initialization checkpoint does not exist: "
+                f"{initialization_path}"
+            )
+        checkpoint = torch.load(initialization_path, map_location="cpu")
+        if "control_state_dict" not in checkpoint:
+            raise KeyError(
+                "Conditional initialization checkpoint has no control_state_dict: "
+                f"{initialization_path}"
+            )
+        model.control.load_state_dict(checkpoint["control_state_dict"])
+    return model.to(device)
 
 
 def _raw_model(model: nn.Module) -> nn.Module:
@@ -339,6 +356,17 @@ def train(
                 sum(parameter.numel() for parameter in trainable),
                 validation_seed,
             )
+            if (
+                stage == "conditional"
+                and start_epoch == 0
+                and training.get("conditional_init_checkpoint")
+            ):
+                logging.info(
+                    "Initialized conditional branch from %s",
+                    training["conditional_init_checkpoint"],
+                )
+
+        metrics_path = output_dir / "epoch_metrics.csv"
 
         for epoch in range(start_epoch, epochs):
             if train_sampler is not None:
@@ -389,15 +417,38 @@ def train(
                 if is_best:
                     torch.save(state, checkpoint_dir / "best.pt")
                 checkpoint_every = int(training.get("checkpoint_every", 0))
+                snapshot_path = ""
                 if checkpoint_every > 0 and (epoch + 1) % checkpoint_every == 0:
                     snapshot = {
                         key: value
                         for key, value in state.items()
                         if key not in ("optimizer_state_dict", "scaler_state_dict")
                     }
-                    torch.save(
-                        snapshot,
-                        checkpoint_dir / f"epoch_{epoch + 1:04d}.pt",
+                    snapshot_file = checkpoint_dir / f"epoch_{epoch + 1:04d}.pt"
+                    torch.save(snapshot, snapshot_file)
+                    snapshot_path = str(snapshot_file)
+                write_header = not metrics_path.is_file()
+                with metrics_path.open("a", newline="", encoding="utf-8") as stream:
+                    writer_csv = csv.DictWriter(
+                        stream,
+                        fieldnames=(
+                            "epoch",
+                            "train_loss",
+                            "val_loss",
+                            "is_best",
+                            "snapshot",
+                        ),
+                    )
+                    if write_header:
+                        writer_csv.writeheader()
+                    writer_csv.writerow(
+                        {
+                            "epoch": epoch + 1,
+                            "train_loss": f"{train_loss:.10f}",
+                            "val_loss": f"{val_loss:.10f}",
+                            "is_best": int(is_best),
+                            "snapshot": snapshot_path,
+                        }
                     )
             if context.enabled:
                 dist.barrier()

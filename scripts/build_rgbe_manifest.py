@@ -30,6 +30,21 @@ def main() -> None:
         help="Fail when a target frame or event representation has no pair",
     )
     parser.add_argument(
+        "--allow-missing-users",
+        action="store_true",
+        help="Skip requested users that are not present in the dataset",
+    )
+    parser.add_argument(
+        "--drop-users-without-train",
+        action="store_true",
+        help="Drop users that have no samples in the requested training experiments",
+    )
+    parser.add_argument(
+        "--train-experiments",
+        nargs="*",
+        help="Experiments assigned to training; unlisted experiments are excluded",
+    )
+    parser.add_argument(
         "--val-experiments",
         nargs="*",
         help="Experiments assigned to validation, for example: exp5",
@@ -39,6 +54,9 @@ def main() -> None:
         nargs="*",
         help="Experiments assigned to testing, for example: exp6",
     )
+    parser.add_argument("--train-stride", type=int, default=1)
+    parser.add_argument("--val-stride", type=int, default=1)
+    parser.add_argument("--test-stride", type=int, default=1)
     args = parser.parse_args()
     counts = build_manifests(
         args.dataset_root,
@@ -47,9 +65,15 @@ def main() -> None:
         test_ratio=args.test_ratio,
         seed=args.seed,
         include_users=args.users,
+        allow_missing_users=args.allow_missing_users,
         strict_pairs=args.strict_pairs,
+        train_experiments=args.train_experiments,
         val_experiments=args.val_experiments,
         test_experiments=args.test_experiments,
+        train_stride=args.train_stride,
+        val_stride=args.val_stride,
+        test_stride=args.test_stride,
+        drop_users_without_train=args.drop_users_without_train,
     )
     print(json.dumps({"status": "ok", "counts": counts}, indent=2))
 

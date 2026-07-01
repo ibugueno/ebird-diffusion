@@ -1,5 +1,9 @@
 # RGBE-Gaze server workflow
 
+For the V2 cross-user transfer experiment (generic users 1-50 followed by
+ControlNet adaptation on users 51-66), see
+[`generalization_v2_pipeline.md`](generalization_v2_pipeline.md).
+
 This guide documents two separate 512x512 experiments:
 
 1. **Baseline (recommended):** the five-level architecture that already

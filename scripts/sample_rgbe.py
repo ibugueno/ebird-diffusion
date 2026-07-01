@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torchvision.utils import save_image
 from tqdm import tqdm
 
@@ -55,6 +55,16 @@ def main() -> None:
     parser.add_argument("--conditional-checkpoint", type=Path)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument(
+        "--samples-per-user",
+        type=int,
+        help="Select at most this many samples per user before applying --limit",
+    )
+    parser.add_argument(
+        "--split",
+        choices=("train", "val", "test"),
+        help="Manifest split to reconstruct; defaults to sampling.split",
+    )
+    parser.add_argument(
         "--device",
         type=int,
         help="CUDA index to use; defaults to cuda:0",
@@ -63,13 +73,26 @@ def main() -> None:
     config = load_config(args.config)
     require_sections(config, "data", "model", "diffusion", "training", "sampling")
     sampling = config["sampling"]
-    split = sampling.get("split", "test")
-    dataset = RGBEGazeDataset(
+    split = args.split or sampling.get("split", "test")
+    full_dataset = RGBEGazeDataset(
         Path(config["data"]["manifest_dir"]) / f"{split}.csv",
         config["data"]["dataset_root"],
         resolution=config["model"]["image_size"],
         include_condition=True,
     )
+    dataset = full_dataset
+    if args.samples_per_user is not None:
+        if args.samples_per_user < 1:
+            raise ValueError("--samples-per-user must be at least 1")
+        user_counts: dict[str, int] = {}
+        selected_indices: list[int] = []
+        for index, row in enumerate(full_dataset.rows):
+            user = row["user"]
+            count = user_counts.get(user, 0)
+            if count < args.samples_per_user:
+                selected_indices.append(index)
+                user_counts[user] = count + 1
+        dataset = Subset(full_dataset, selected_indices)
     loader = DataLoader(dataset, batch_size=int(sampling.get("batch_size", 1)))
     if torch.cuda.is_available():
         device_index = args.device if args.device is not None else 0
@@ -118,6 +141,7 @@ def main() -> None:
                 "config": str(args.config),
                 "seed": seed,
                 "split": split,
+                "samples_per_user": args.samples_per_user,
             },
             indent=2,
         )

@@ -17,7 +17,7 @@ from ebird.diffusion import LinearNoiseScheduler
 from ebird.models.conditional import conditional_from_config
 from ebird.models.unet import unet_from_config
 from ebird.training.distributed import DistributedContext
-from ebird.training.trainer import _run_epoch
+from ebird.training.trainer import _create_model, _run_epoch
 from scripts.evaluate_rgbe_metrics import compute_metrics
 
 
@@ -49,6 +49,91 @@ def _create_dataset(
 
 
 class RGBEGazePipelineTest(unittest.TestCase):
+    def test_conditional_branch_can_initialize_from_generic_checkpoint(self):
+        with tempfile.TemporaryDirectory(prefix="rgbe-transfer-") as temporary:
+            root = Path(temporary)
+            model_config = {
+                "image_size": 8,
+                "in_channels": 1,
+                "channels": [8, 16],
+                "attention_resolutions": [],
+                "time_embedding_dim": 32,
+                "num_heads": 1,
+                "dropout": 0.0,
+                "gradient_checkpointing": False,
+            }
+            base = unet_from_config(model_config)
+            base_path = root / "base.pt"
+            torch.save({"model_state_dict": base.state_dict()}, base_path)
+            generic = conditional_from_config(base, model_config)
+            with torch.no_grad():
+                for parameter in generic.control.parameters():
+                    parameter.fill_(0.125)
+            control_path = root / "generic-control.pt"
+            torch.save({"control_state_dict": generic.control.state_dict()}, control_path)
+
+            loaded = _create_model(
+                "conditional",
+                {
+                    "model": model_config,
+                    "training": {
+                        "base_checkpoint": str(base_path),
+                        "conditional_init_checkpoint": str(control_path),
+                    },
+                },
+                torch.device("cpu"),
+            )
+            self.assertTrue(
+                all(
+                    torch.equal(parameter, torch.full_like(parameter, 0.125))
+                    for parameter in loaded.control.parameters()
+                )
+            )
+
+    def test_explicit_train_split_stride_and_missing_users(self):
+        with tempfile.TemporaryDirectory(prefix="rgbe-protocol-") as temporary:
+            root = Path(temporary)
+            dataset_root = root / "rgbe-gaze"
+            manifest_dir = root / "manifests"
+            _create_dataset(dataset_root, users=4, samples=10, experiments=6)
+            for branch in ("gray_frames", "event_accumulate_frames"):
+                for path in (dataset_root / branch / "user_4" / "exp1").glob("*.png"):
+                    path.unlink()
+
+            counts = build_manifests(
+                dataset_root,
+                manifest_dir,
+                include_users=["1", "2", "3", "4", "5"],
+                allow_missing_users=True,
+                train_experiments=["exp1"],
+                val_experiments=["exp5"],
+                test_experiments=["exp6"],
+                train_stride=5,
+                drop_users_without_train=True,
+            )
+
+            self.assertEqual(counts["train"], 6)
+            self.assertEqual(counts["val"], 30)
+            self.assertEqual(counts["test"], 30)
+            self.assertEqual(counts["requested_users"], 5)
+            self.assertEqual(counts["included_users"], 3)
+            self.assertEqual(counts["missing_users"], 1)
+            self.assertEqual(counts["users_without_train"], 1)
+            with (manifest_dir / "train.csv").open(newline="") as stream:
+                train_rows = list(csv.DictReader(stream))
+            self.assertEqual({row["experiment"] for row in train_rows}, {"exp1"})
+            self.assertEqual(
+                {row["user"] for row in train_rows},
+                {"user_1", "user_2", "user_3"},
+            )
+            self.assertTrue(
+                all(
+                    "frame_0_" in row["filename"]
+                    or "frame_5_" in row["filename"]
+                    for row in train_rows
+                )
+            )
+
     def test_validation_noise_is_deterministic(self):
         class ZeroNoiseModel(torch.nn.Module):
             def forward(self, noisy, timesteps):
