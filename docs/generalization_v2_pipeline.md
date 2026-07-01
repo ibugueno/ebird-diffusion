@@ -121,9 +121,10 @@ python scripts/run_generalization_v2.py \
   --execute
 ```
 
-Existing manifests are never replaced implicitly. A second full-pipeline call
-stops at preparation; resume the desired training phase as shown above. Use
-`--force-prepare` only when intentionally defining a new dataset snapshot.
+Existing manifests are never replaced implicitly. A full-pipeline call reuses
+them when their train, validation, and test experiments match the selected
+protocol. Incompatible or older manifests require `--force-prepare`; use that
+flag only when intentionally rebuilding the dataset snapshot.
 
 ## Checkpoints and training metrics
 

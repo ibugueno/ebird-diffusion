@@ -109,6 +109,50 @@ def _manifest_summary(
     }
 
 
+def _read_manifest_rows(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    with path.open(newline="", encoding="utf-8") as stream:
+        return list(csv.DictReader(stream))
+
+
+def _manifest_compatibility(
+    manifest_dir: Path,
+    train_experiments: list[str],
+) -> tuple[bool, str]:
+    expected = {
+        "train": set(train_experiments),
+        "val": {"exp5"},
+        "test": {"exp6"},
+    }
+    for split, expected_experiments in expected.items():
+        path = manifest_dir / f"{split}.csv"
+        rows = _read_manifest_rows(path)
+        if not rows:
+            return False, f"{path} is missing or empty"
+        experiments = {row["experiment"] for row in rows}
+        if experiments != expected_experiments:
+            return (
+                False,
+                f"{path} contains experiments {sorted(experiments)}; "
+                f"expected {sorted(expected_experiments)}",
+            )
+    return True, "compatible"
+
+
+def _existing_counts(manifest_dir: Path) -> dict[str, int]:
+    split_counts = {
+        split: len(_read_manifest_rows(manifest_dir / f"{split}.csv"))
+        for split in ("train", "val", "test")
+    }
+    return {
+        "paired": sum(split_counts.values()),
+        "skipped_without_event": 0,
+        "skipped_without_target": 0,
+        **split_counts,
+    }
+
+
 def _prepare(protocol: str, dataset_root: Path, *, force: bool) -> None:
     settings = _protocol(protocol)
     paths = _paths(protocol)
@@ -129,11 +173,18 @@ def _prepare(protocol: str, dataset_root: Path, *, force: bool) -> None:
     report: dict[str, object] = {"protocol": protocol, "dataset_root": str(dataset_root)}
     for name, output_dir, users, train_experiments in jobs:
         if (output_dir / "all.csv").is_file() and not force:
-            raise FileExistsError(
-                f"Manifest already exists: {output_dir / 'all.csv'}. "
-                "Reuse it by running only a training step, or pass --force-prepare "
-                "to rebuild it intentionally."
+            compatible, reason = _manifest_compatibility(
+                output_dir, list(train_experiments)
             )
+            if not compatible:
+                raise FileExistsError(
+                    f"Existing manifest is incompatible: {output_dir}. {reason}. "
+                    "Pass --force-prepare to rebuild it intentionally."
+                )
+            counts = _existing_counts(output_dir)
+            report[name] = _manifest_summary(output_dir, counts, users)
+            print(f"Reusing compatible {name} manifests: {output_dir}")
+            continue
         counts = build_manifests(
             dataset_root,
             output_dir,

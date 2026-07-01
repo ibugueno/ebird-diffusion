@@ -20,6 +20,7 @@ from ebird.training.distributed import DistributedContext
 from ebird.training.trainer import _create_model, _run_epoch
 from scripts.evaluate_rgbe_metrics import compute_metrics
 from scripts.sample_rgbe import _balanced_sample_indices
+from scripts.run_generalization_v2 import _manifest_compatibility
 
 
 SKIMAGE_AVAILABLE = importlib.util.find_spec("skimage") is not None
@@ -101,7 +102,6 @@ class RGBEGazePipelineTest(unittest.TestCase):
                     for parameter in loaded.control.parameters()
                 )
             )
-
     def test_explicit_train_split_stride_and_missing_users(self):
         with tempfile.TemporaryDirectory(prefix="rgbe-protocol-") as temporary:
             root = Path(temporary)
@@ -145,6 +145,8 @@ class RGBEGazePipelineTest(unittest.TestCase):
                     for row in train_rows
                 )
             )
+            compatible, reason = _manifest_compatibility(manifest_dir, ["exp1"])
+            self.assertTrue(compatible, reason)
 
     def test_validation_noise_is_deterministic(self):
         class ZeroNoiseModel(torch.nn.Module):
