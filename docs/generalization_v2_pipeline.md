@@ -10,18 +10,19 @@ The reduced protocol is the initial experiment:
 
 | Phase | Users | Train | Validation | Test | Sampling |
 |---|---:|---|---|---|---:|
-| Generic image branch | 1-50 | `exp1` | `exp5` | `exp6` | every fifth training pair |
-| Generic conditional branch | 1-50 | `exp1` | `exp5` | `exp6` | every fifth training pair |
-| Specific conditional branch | 51-66 | `exp2` | `exp5` | `exp6` | every fifth training pair |
+| Generic image branch | 1-50 | `exp1` | `exp5` | `exp6` | every fifth train/validation pair |
+| Generic conditional branch | 1-50 | `exp1` | `exp5` | `exp6` | every fifth train/validation pair |
+| Specific conditional branch | 51-66 | `exp2` | `exp5` | `exp6` | every fifth train/validation pair |
 
-Validation always uses every available paired sample from `exp5`; `exp6` is
-reserved for final held-out reconstruction metrics. A requested user is
-excluded from all splits when the required training experiment has no valid
-pair. Missing users and excluded users are recorded in `summary.json`.
+The reduced protocol uses every fifth paired sample from `exp5` during
+validation to reduce epoch time. `exp6` remains complete and is reserved for
+final held-out reconstruction metrics. A requested user is excluded from all
+splits when the required training experiment has no valid pair. Missing users
+and excluded users are recorded in `summary.json`.
 
 The full protocol is already supported. It changes training to `exp1` through
-`exp4` and uses every pair (`stride=1`), while retaining `exp5` for validation
-and `exp6` for testing.
+`exp4` and uses every pair (`stride=1`) for training and validation, while
+retaining `exp6` for complete testing.
 
 ## Transfer behavior
 
@@ -72,7 +73,7 @@ python scripts/run_generalization_v2.py \
 ```
 
 If manifests were created with an earlier version of this pipeline, rebuild
-them once so `test.csv` contains `exp6`:
+them once so validation uses stride 5 and `test.csv` contains complete `exp6`:
 
 ```bash
 python scripts/run_generalization_v2.py \

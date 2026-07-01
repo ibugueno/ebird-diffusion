@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -121,11 +122,12 @@ class RGBEGazePipelineTest(unittest.TestCase):
                 val_experiments=["exp5"],
                 test_experiments=["exp6"],
                 train_stride=5,
+                val_stride=5,
                 drop_users_without_train=True,
             )
 
             self.assertEqual(counts["train"], 6)
-            self.assertEqual(counts["val"], 30)
+            self.assertEqual(counts["val"], 6)
             self.assertEqual(counts["test"], 30)
             self.assertEqual(counts["requested_users"], 5)
             self.assertEqual(counts["included_users"], 3)
@@ -145,7 +147,20 @@ class RGBEGazePipelineTest(unittest.TestCase):
                     for row in train_rows
                 )
             )
-            compatible, reason = _manifest_compatibility(manifest_dir, ["exp1"])
+            spec = {
+                "protocol": "reduced",
+                "train_stride": 5,
+                "val_stride": 5,
+                "test_stride": 1,
+            }
+            (manifest_dir / "protocol_spec.json").write_text(
+                json.dumps(spec), encoding="utf-8"
+            )
+            compatible, reason = _manifest_compatibility(
+                manifest_dir,
+                ["exp1"],
+                spec,
+            )
             self.assertTrue(compatible, reason)
 
     def test_validation_noise_is_deterministic(self):

@@ -33,11 +33,13 @@ def _protocol(protocol: str) -> dict[str, object]:
             "generic_train_experiments": ["exp1"],
             "specific_train_experiments": ["exp2"],
             "train_stride": 5,
+            "val_stride": 5,
         }
     return {
         "generic_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
         "specific_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
         "train_stride": 1,
+        "val_stride": 1,
     }
 
 
@@ -119,7 +121,14 @@ def _read_manifest_rows(path: Path) -> list[dict[str, str]]:
 def _manifest_compatibility(
     manifest_dir: Path,
     train_experiments: list[str],
+    expected_spec: dict[str, object],
 ) -> tuple[bool, str]:
+    spec_path = manifest_dir / "protocol_spec.json"
+    if not spec_path.is_file():
+        return False, f"{spec_path} is missing"
+    current_spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    if current_spec != expected_spec:
+        return False, f"{spec_path} does not match the selected protocol"
     expected = {
         "train": set(train_experiments),
         "val": {"exp5"},
@@ -172,9 +181,22 @@ def _prepare(protocol: str, dataset_root: Path, *, force: bool) -> None:
     )
     report: dict[str, object] = {"protocol": protocol, "dataset_root": str(dataset_root)}
     for name, output_dir, users, train_experiments in jobs:
+        manifest_spec = {
+            "protocol": protocol,
+            "role": name,
+            "users": users,
+            "train_experiments": list(train_experiments),
+            "val_experiments": ["exp5"],
+            "test_experiments": ["exp6"],
+            "train_stride": int(settings["train_stride"]),
+            "val_stride": int(settings["val_stride"]),
+            "test_stride": 1,
+        }
         if (output_dir / "all.csv").is_file() and not force:
             compatible, reason = _manifest_compatibility(
-                output_dir, list(train_experiments)
+                output_dir,
+                list(train_experiments),
+                manifest_spec,
             )
             if not compatible:
                 raise FileExistsError(
@@ -194,7 +216,12 @@ def _prepare(protocol: str, dataset_root: Path, *, force: bool) -> None:
             val_experiments=["exp5"],
             test_experiments=["exp6"],
             train_stride=int(settings["train_stride"]),
+            val_stride=int(settings["val_stride"]),
             drop_users_without_train=True,
+        )
+        (output_dir / "protocol_spec.json").write_text(
+            json.dumps(manifest_spec, indent=2) + "\n",
+            encoding="utf-8",
         )
         report[name] = _manifest_summary(output_dir, counts, users)
         print(f"Prepared {name} manifests: {json.dumps(counts, sort_keys=True)}")
