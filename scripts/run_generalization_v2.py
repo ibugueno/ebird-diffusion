@@ -35,12 +35,21 @@ def _protocol(protocol: str) -> dict[str, object]:
             "train_stride": 5,
             "val_stride": 5,
         }
-    return {
-        "generic_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
-        "specific_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
-        "train_stride": 1,
-        "val_stride": 1,
-    }
+    if protocol == "stride5_all":
+        return {
+            "generic_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
+            "specific_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
+            "train_stride": 5,
+            "val_stride": 5,
+        }
+    if protocol == "full":
+        return {
+            "generic_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
+            "specific_train_experiments": ["exp1", "exp2", "exp3", "exp4"],
+            "train_stride": 1,
+            "val_stride": 1,
+        }
+    raise ValueError(f"Unknown protocol: {protocol}")
 
 
 def _paths(protocol: str) -> dict[str, Path]:
@@ -465,7 +474,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Prepare and run the V2 cross-user generalization protocol"
     )
-    parser.add_argument("--protocol", choices=("reduced", "full"), default="reduced")
+    parser.add_argument(
+        "--protocol",
+        choices=("reduced", "stride5_all", "full"),
+        default="reduced",
+    )
     parser.add_argument(
         "--steps",
         nargs="+",

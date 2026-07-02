@@ -24,6 +24,14 @@ The full protocol is already supported. It changes training to `exp1` through
 `exp4` and uses every pair (`stride=1`) for training and validation, while
 retaining `exp6` for complete testing.
 
+Three isolated protocols are available:
+
+| Protocol | Train experiments | Train stride | Validation | Test |
+|---|---|---:|---|---|
+| `reduced` | Generic: `exp1`; specific: `exp2` | 5 | `exp5`, stride 5 | complete `exp6` |
+| `stride5_all` | `exp1` through `exp4` | 5 | `exp5`, stride 5 | complete `exp6` |
+| `full` | `exp1` through `exp4` | 1 | `exp5`, stride 1 | complete `exp6` |
+
 ## Transfer behavior
 
 The specific run loads:
@@ -273,6 +281,54 @@ python scripts/evaluate_rgbe_metrics.py \
 The generated images, per-image CSV, and metric summary remain separate from
 the validation-checkpoint outputs.
 
+## Run the `exp1`-through-`exp4` stride-5 protocol
+
+This experiment preserves the reduced sampling rate while using all four
+training experiments. Its manifests, checkpoints, and samples are isolated
+under `generalization-v2/stride5_all/`.
+
+Preview its commands:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol stride5_all \
+  --gpus 1,2,4
+```
+
+Run the complete generic-plus-specific training pipeline:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol stride5_all \
+  --gpus 1,2,4 \
+  --execute
+```
+
+Evaluate the final generic model on up to 100 balanced `exp6` samples:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol stride5_all \
+  --steps generic-test \
+  --sampling-device 1 \
+  --test-limit 100 \
+  --test-samples-per-user 7 \
+  --execute
+```
+
+Evaluate specific adaptation every five epochs:
+
+```bash
+python scripts/run_generalization_v2.py \
+  --protocol stride5_all \
+  --steps specific-evaluate \
+  --sampling-device 1 \
+  --samples-per-user 7 \
+  --validation-limit 100 \
+  --checkpoint-epochs 0 5 10 15 20 25 30 35 40 \
+  --execute
+```
+
 ## Run the future full-data protocol
 
 The command is identical except for `--protocol full`:
@@ -284,5 +340,5 @@ python scripts/run_generalization_v2.py \
   --execute
 ```
 
-Its manifests, runs, checkpoints, and samples remain separate from the reduced
-protocol.
+Its manifests, runs, checkpoints, and samples remain separate from both
+`reduced` and `stride5_all`.

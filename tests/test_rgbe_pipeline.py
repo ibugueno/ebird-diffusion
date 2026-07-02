@@ -21,7 +21,7 @@ from ebird.training.distributed import DistributedContext
 from ebird.training.trainer import _create_model, _run_epoch
 from scripts.evaluate_rgbe_metrics import compute_metrics
 from scripts.sample_rgbe import _balanced_sample_indices
-from scripts.run_generalization_v2 import _manifest_compatibility
+from scripts.run_generalization_v2 import _manifest_compatibility, _protocol
 
 
 SKIMAGE_AVAILABLE = importlib.util.find_spec("skimage") is not None
@@ -52,6 +52,19 @@ def _create_dataset(
 
 
 class RGBEGazePipelineTest(unittest.TestCase):
+    def test_stride5_all_protocol(self):
+        protocol = _protocol("stride5_all")
+        self.assertEqual(
+            protocol["generic_train_experiments"],
+            ["exp1", "exp2", "exp3", "exp4"],
+        )
+        self.assertEqual(
+            protocol["specific_train_experiments"],
+            protocol["generic_train_experiments"],
+        )
+        self.assertEqual(protocol["train_stride"], 5)
+        self.assertEqual(protocol["val_stride"], 5)
+
     def test_balanced_sampling_interleaves_users(self):
         rows = [
             {"user": "user_1"},
