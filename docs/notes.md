@@ -93,7 +93,7 @@ python scripts/run_generalization_v2.py \
 
 python scripts/run_generalization_v2.py \
   --protocol stride5_all \
-  --gpus 1,2,4 \
+  --gpus 1,5,7 \
   --execute
 
 # Evaluar generico

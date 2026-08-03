@@ -1,0 +1,6 @@
+.git/
+weights/
+outputs/
+logs/
+__pycache__/
+*.py[cod]

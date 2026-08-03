@@ -1,0 +1,7 @@
+E2VID
+Repository: https://github.com/uzh-rpg/rpg_e2vid
+Commit: d0a7c005f460f2422f2a4bf605f70820ea7a1e5f
+
+ET-Net
+Repository: https://github.com/WarranWeng/ET-Net
+Commit: 3806acdf27d3534498f9e49c38a93b1de12d9b93
